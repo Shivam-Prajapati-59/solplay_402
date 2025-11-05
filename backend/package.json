@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.38.4",
+    "@hookform/resolvers": "^5.2.2",
     "@neondatabase/serverless": "^1.0.2",
     "@scure/base": "^2.0.0",
     "@solana/kit": "^3.0.3",
@@ -26,7 +27,8 @@
     "viem": "^2.38.6",
     "x402-axios": "^0.7.0",
     "x402-express": "^0.7.1",
-    "x402-fetch": "^0.7.0"
+    "x402-fetch": "^0.7.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@solana/web3.js": "^1.98.4",
