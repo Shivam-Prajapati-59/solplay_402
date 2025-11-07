@@ -62,16 +62,15 @@ const Navbar = () => {
             <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-14 sm:h-16">
                     {/* Logo - Left side with fixed width */}
-
                     <div className="flex items-center group w-1/6">
                         <Image
-                            src="/logo2.png"
+                            src="/logonew.png"
                             alt="Logo"
-                            width={72}
-                            height={72}
-                            className="transition-transform duration-300 group-hover:rotate-12"
+                            width={180}
+                            height={100}
+                            className="transition-transform duration-300 ease-in-out group-hover:scale-105"
                         />
-                        <div className="text-lg font-bold">SOL Play 402</div>
+
                     </div>
 
                     {/* Desktop Nav Links - Centered with fixed width */}
