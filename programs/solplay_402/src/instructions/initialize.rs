@@ -2,23 +2,25 @@
 // Initialize Platform
 // =============================================================================
 //
-// SECURITY NOTE: This instruction initializes a SINGLE GLOBAL platform PDA.
-// The platform uses seeds = [PLATFORM_SEED] with NO authority binding,
-// meaning the PDA address is deterministic and the same for all callers.
+// SECURITY: This instruction uses upgrade authority verification to prevent
+// front-running attacks during deployment.
 //
-// The `init` constraint ensures this can only be called ONCE per program deployment.
-// The first caller becomes the permanent platform authority.
+// The platform PDA uses seeds = [PLATFORM_SEED] for a deterministic global address.
+// Only the program's upgrade authority can initialize the platform.
 //
-// DEPLOYMENT BEST PRACTICE:
-// To prevent front-running, the program deployer should:
-// 1. Deploy the program
-// 2. IMMEDIATELY call initialize_platform in the same transaction bundle
-// 3. Or use a private RPC to ensure no other party can initialize first
+// This prevents:
+// - Front-running attacks where malicious actors initialize before the deployer
+// - Unauthorized platform initialization
+// - Authority hijacking
 //
-// ALTERNATIVE SECURE DESIGNS (for future consideration):
-// - Bind PDA to deployer: seeds = [PLATFORM_SEED, deployer.key()]
-// - Check upgrade authority: require!(authority == program_upgrade_authority)
-// - Use program-owned authority: require!(authority == program_id)
+// DEPLOYMENT:
+// 1. Deploy the program (sets upgrade authority)
+// 2. Call initialize_platform with the upgrade authority as signer
+// 3. The upgrade authority becomes the platform authority
+//
+// PRODUCTION NOTE:
+// After initialization, you may optionally transfer the upgrade authority
+// to a governance program or multisig for decentralized control.
 // =============================================================================
 
 use crate::constants::*;
@@ -27,6 +29,10 @@ use crate::events::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::Mint;
+
+
+
+
 
 #[derive(Accounts)]
 pub struct InitializePlatform<'info> {
@@ -42,8 +48,16 @@ pub struct InitializePlatform<'info> {
     /// Validate this is a real SPL token mint
     pub token_mint: Account<'info, Mint>,
 
-    /// Platform authority - should be program upgrade authority for security
-    /// Only this authority can initialize the platform (one-time operation)
+    /// Program data account - used to verify upgrade authority
+    /// This account stores the program's upgrade authority
+    #[account(
+        constraint = program_data.upgrade_authority_address == Some(authority.key()) 
+            @ StreamingError::UnauthorizedPlatformInitialization
+    )]
+    pub program_data: Account<'info, ProgramData>,
+
+    /// Platform authority - MUST be the program's upgrade authority
+    /// This prevents front-running attacks during deployment
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -55,13 +69,14 @@ pub fn initialize_platform(
     platform_fee_basis_points: u16,
     min_price_per_chunk: u64,
 ) -> Result<()> {
-    // NOTE: Platform uses a single global PDA (seeds = [PLATFORM_SEED])
-    // This means only ONE platform can exist per program deployment.
-    // The `init` constraint ensures this can only be called once.
+    // SECURITY: The InitializePlatform accounts struct enforces that:
+    // 1. The `authority` signer MUST match the program's upgrade authority
+    // 2. This is validated via the program_data.upgrade_authority_address constraint
+    // 3. This prevents ANY unauthorized party from initializing the platform
     //
-    // SECURITY: The first caller becomes the platform authority.
-    // For production, ensure this is called by the program deployer immediately after deployment,
-    // or add additional authorization checks (e.g., require authority to match program upgrade authority).
+    // The platform uses a global PDA (seeds = [PLATFORM_SEED]), so it can only
+    // be initialized ONCE. After initialization, the upgrade authority becomes
+    // the permanent platform authority with fee collection rights.
 
     // Validate platform fee
     require!(

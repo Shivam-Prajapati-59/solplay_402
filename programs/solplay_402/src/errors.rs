@@ -86,4 +86,7 @@ pub enum StreamingError {
 
     #[msg("Invalid session state - cannot re-initialize active session")]
     InvalidSessionState,
+
+    #[msg("Unauthorized platform initialization - must be program upgrade authority")]
+    UnauthorizedPlatformInitialization,
 }
