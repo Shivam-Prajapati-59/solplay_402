@@ -117,15 +117,27 @@ describe("SolPlay 402 - Complete Test Suite", () => {
     await airdrop(creator.publicKey);
     await airdrop(viewer.publicKey);
 
-    tokenMint = await createMint(
-      provider.connection,
-      payer.payer,
-      payer.publicKey,
-      null,
-      6
-    );
-
-    console.log("   ✅ Token mint created:", tokenMint.toString());
+    // Check if platform already exists and use its token mint
+    try {
+      const existingPlatform = await program.account.platform.fetch(
+        platformPda
+      );
+      tokenMint = existingPlatform.tokenMint;
+      console.log(
+        "   ℹ️  Using existing platform token mint:",
+        tokenMint.toString()
+      );
+    } catch (err) {
+      // Platform doesn't exist, create new token mint
+      tokenMint = await createMint(
+        provider.connection,
+        payer.payer,
+        payer.publicKey,
+        null,
+        6
+      );
+      console.log("   ✅ Token mint created:", tokenMint.toString());
+    }
 
     creatorTokenAccount = await createAccount(
       provider.connection,
@@ -260,8 +272,9 @@ describe("SolPlay 402 - Complete Test Suite", () => {
         // Both are acceptable as they prevent the invalid video creation
         const errorStr = err.toString();
         const hasVideoIdError = errorStr.includes("VideoIdTooLong");
-        const hasPdaError = errorStr.includes("maximum depth") || errorStr.includes("seeds");
-        
+        const hasPdaError =
+          errorStr.includes("maximum depth") || errorStr.includes("seeds");
+
         assert.isTrue(
           hasVideoIdError || hasPdaError,
           "Should fail with VideoIdTooLong or PDA error"

@@ -2,8 +2,6 @@
 // Constants
 // =============================================================================
 
-use anchor_lang::prelude::*;
-
 // Platform configuration
 pub const PLATFORM_SEED: &[u8] = b"platform";
 pub const VIDEO_SEED: &[u8] = b"video";

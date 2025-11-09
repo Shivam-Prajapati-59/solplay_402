@@ -16,9 +16,6 @@ pub mod events;
 pub mod instructions;
 pub mod state;
 
-use constants::*;
-use errors::*;
-use events::*;
 use instructions::*;
 
 #[program]
