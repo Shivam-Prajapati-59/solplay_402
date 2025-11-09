@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-solplay_402 = "8esALmEtCkKPCkG3GHuSeXUhuwfwrmW3G8vep8GgpHQE"
+solplay_402 = "26vn3c6kbcr5GMTn5pJj4TShcwTFgJvMMjqdm5oVAxFf"
 
 [registry]
 url = "https://api.apr.dev"

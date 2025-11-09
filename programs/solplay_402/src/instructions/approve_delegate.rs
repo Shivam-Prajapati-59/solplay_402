@@ -60,7 +60,7 @@ pub struct ApproveDelegate<'info> {
     #[account(
         mut,
         constraint = platform_token_account.mint == token_mint.key() @ StreamingError::InvalidTokenMint,
-        constraint = platform_token_account.owner == platform.key() @ StreamingError::InvalidPlatformAccount
+        constraint = platform_token_account.owner == platform.authority @ StreamingError::InvalidPlatformAccount
     )]
     pub platform_token_account: Account<'info, TokenAccount>,
 
