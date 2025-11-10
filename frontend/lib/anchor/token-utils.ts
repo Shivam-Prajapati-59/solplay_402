@@ -37,33 +37,52 @@ export async function getOrCreateAssociatedTokenAccount(
 
   // Check if account exists
   try {
-    await getAccount(connection, associatedToken);
-    return {
-      address: associatedToken,
-      needsCreation: false,
-    };
-  } catch (error: any) {
-    // Account doesn't exist, need to create it
-    if (
-      error.message?.includes("could not find account") ||
-      error.message?.includes("Invalid account")
-    ) {
-      const instruction = createAssociatedTokenAccountInstruction(
-        payer,
-        associatedToken,
-        owner,
-        tokenMint,
-        TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      );
+    const accountInfo = await connection.getAccountInfo(associatedToken);
 
+    if (accountInfo) {
+      // Account exists
       return {
         address: associatedToken,
-        needsCreation: true,
-        instruction,
+        needsCreation: false,
       };
     }
-    throw error;
+
+    // Account doesn't exist, need to create it
+    const instruction = createAssociatedTokenAccountInstruction(
+      payer,
+      associatedToken,
+      owner,
+      tokenMint,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    return {
+      address: associatedToken,
+      needsCreation: true,
+      instruction,
+    };
+  } catch (error: any) {
+    console.warn(
+      "Error checking token account, will attempt to create:",
+      error.message
+    );
+
+    // On any error, assume account doesn't exist and try to create
+    const instruction = createAssociatedTokenAccountInstruction(
+      payer,
+      associatedToken,
+      owner,
+      tokenMint,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    return {
+      address: associatedToken,
+      needsCreation: true,
+      instruction,
+    };
   }
 }
 

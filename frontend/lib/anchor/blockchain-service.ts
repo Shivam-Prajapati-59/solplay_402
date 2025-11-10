@@ -30,10 +30,22 @@ import {
 } from "./token-utils";
 
 // Get token mint from environment
-const TOKEN_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_TOKEN_MINT ||
-    "So11111111111111111111111111111111111111112"
-); // Fallback to SOL
+const TOKEN_MINT_STR = process.env.NEXT_PUBLIC_TOKEN_MINT;
+
+if (!TOKEN_MINT_STR || TOKEN_MINT_STR === "") {
+  console.error("❌ NEXT_PUBLIC_TOKEN_MINT not configured!");
+  console.error("📚 Please follow the setup guide in SETUP_GUIDE.md");
+  console.error("   1. Run: anchor run initialize-platform");
+  console.error("   2. Copy the Token Mint address");
+  console.error(
+    "   3. Add to frontend/.env.local: NEXT_PUBLIC_TOKEN_MINT=<address>"
+  );
+  console.error("   4. Restart the frontend dev server");
+}
+
+const TOKEN_MINT = TOKEN_MINT_STR
+  ? new PublicKey(TOKEN_MINT_STR)
+  : new PublicKey("So11111111111111111111111111111111111111112"); // Fallback (will fail)
 
 export class BlockchainService {
   private connection: Connection;
@@ -185,63 +197,98 @@ export class BlockchainService {
       throw new Error("Wallet not connected");
     }
 
-    // Get or create viewer token account
-    const viewerTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
-      this.connection,
-      TOKEN_MINT,
-      this.wallet.publicKey,
-      this.wallet.publicKey
-    );
+    console.log("🔐 Starting streaming approval...");
+    console.log("  Video ID:", params.videoId);
+    console.log("  Max Chunks:", params.maxChunks);
+    console.log("  Viewer:", this.wallet.publicKey.toString());
+    console.log("  Token Mint:", TOKEN_MINT.toString());
 
-    // Get platform token account
-    const platformConfig = await this.getPlatformConfig();
-    const platformTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
-      this.connection,
-      TOKEN_MINT,
-      platformConfig.authority,
-      this.wallet.publicKey
-    );
+    try {
+      // Get or create viewer token account
+      console.log("📝 Getting viewer token account...");
+      const viewerTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
+        this.connection,
+        TOKEN_MINT,
+        this.wallet.publicKey,
+        this.wallet.publicKey
+      );
+      console.log(
+        "  Viewer Token Account:",
+        viewerTokenAccountInfo.address.toString()
+      );
+      console.log("  Needs Creation:", viewerTokenAccountInfo.needsCreation);
 
-    // Build transaction
-    const tx = new Transaction();
+      // Get platform token account
+      console.log("📝 Getting platform config...");
+      const platformConfig = await this.getPlatformConfig();
+      console.log("  Platform Authority:", platformConfig.authority.toString());
 
-    // Add create token account instructions if needed
-    if (
-      viewerTokenAccountInfo.needsCreation &&
-      viewerTokenAccountInfo.instruction
-    ) {
-      tx.add(viewerTokenAccountInfo.instruction);
+      const platformTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
+        this.connection,
+        TOKEN_MINT,
+        platformConfig.authority,
+        this.wallet.publicKey
+      );
+      console.log(
+        "  Platform Token Account:",
+        platformTokenAccountInfo.address.toString()
+      );
+      console.log("  Needs Creation:", platformTokenAccountInfo.needsCreation);
+
+      // Build transaction
+      const tx = new Transaction();
+
+      // Add create token account instructions if needed
+      if (
+        viewerTokenAccountInfo.needsCreation &&
+        viewerTokenAccountInfo.instruction
+      ) {
+        console.log("  Adding viewer token account creation instruction");
+        tx.add(viewerTokenAccountInfo.instruction);
+      }
+      if (
+        platformTokenAccountInfo.needsCreation &&
+        platformTokenAccountInfo.instruction
+      ) {
+        console.log("  Adding platform token account creation instruction");
+        tx.add(platformTokenAccountInfo.instruction);
+      }
+
+      // Get video PDA
+      const [videoPda] = deriveVideoPda(params.videoId);
+      console.log("📹 Video PDA:", videoPda.toString());
+
+      // Approve streaming delegate
+      console.log("🚀 Calling approve_streaming_delegate instruction...");
+      const signature = await approveStreamingDelegate(this.program, {
+        videoId: params.videoId,
+        maxChunks: params.maxChunks,
+        viewer: this.wallet.publicKey,
+        viewerTokenAccount: viewerTokenAccountInfo.address,
+        platformTokenAccount: platformTokenAccountInfo.address,
+        tokenMint: TOKEN_MINT,
+      });
+
+      console.log("✅ Approval successful! Signature:", signature);
+
+      const [sessionPda] = deriveViewerSessionPda(
+        this.wallet.publicKey,
+        videoPda
+      );
+
+      return {
+        signature,
+        sessionPda: sessionPda.toString(),
+        viewerTokenAccount: viewerTokenAccountInfo.address.toString(),
+      };
+    } catch (error: any) {
+      console.error("❌ Approval failed:", error);
+      console.error("  Error message:", error.message);
+      console.error("  Error logs:", error.logs);
+      throw new Error(
+        `Failed to approve streaming: ${error.message || "Unknown error"}`
+      );
     }
-    if (
-      platformTokenAccountInfo.needsCreation &&
-      platformTokenAccountInfo.instruction
-    ) {
-      tx.add(platformTokenAccountInfo.instruction);
-    }
-
-    // Get video PDA
-    const [videoPda] = deriveVideoPda(params.videoId);
-
-    // Approve streaming delegate
-    const signature = await approveStreamingDelegate(this.program, {
-      videoId: params.videoId,
-      maxChunks: params.maxChunks,
-      viewer: this.wallet.publicKey,
-      viewerTokenAccount: viewerTokenAccountInfo.address,
-      platformTokenAccount: platformTokenAccountInfo.address,
-      tokenMint: TOKEN_MINT,
-    });
-
-    const [sessionPda] = deriveViewerSessionPda(
-      this.wallet.publicKey,
-      videoPda
-    );
-
-    return {
-      signature,
-      sessionPda: sessionPda.toString(),
-      viewerTokenAccount: viewerTokenAccountInfo.address.toString(),
-    };
   }
 
   /**

@@ -80,7 +80,7 @@ const VideoForm = () => {
     const [currentTag, setCurrentTag] = React.useState("");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    const { publicKey, connected } = useWallet();
+    const { publicKey, connected, wallet } = useWallet();
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema),
@@ -198,6 +198,31 @@ const VideoForm = () => {
         setIsSubmitting(true);
 
         try {
+            // Get wallet info upfront (used for both user and video creation)
+            const walletPubkey = publicKey.toBase58();
+            const walletName = wallet?.adapter?.name || undefined;
+
+            // Step 1: Ensure user exists in database
+            toast.info("Verifying user profile...", {
+                description: "Checking your user account.",
+            });
+
+            try {
+                await createOrGetUser({
+                    pubkey: walletPubkey,
+                    accountName: walletName, // Use wallet name if available, otherwise undefined
+                });
+                console.log("✅ User verified/created with pubkey:", walletPubkey);
+                if (walletName) {
+                    console.log("   Wallet name:", walletName);
+                }
+            } catch (userError: any) {
+                console.error("User creation error:", userError);
+                // Continue anyway - backend will auto-create user if needed
+                console.warn("⚠️ User verification failed, backend will handle it");
+            }
+
+            // Step 2: Upload video file to IPFS
             const videoFile = data.video?.[0];
 
             if (!videoFile) {
@@ -213,6 +238,7 @@ const VideoForm = () => {
                 throw new Error("File upload failed");
             }
 
+            // Step 3: Save video metadata to database
             toast.info("Saving video metadata...", {
                 description: "Creating video entry in database.",
             });
@@ -225,13 +251,15 @@ const VideoForm = () => {
                 title: data.title,
                 description: data.description,
                 tags: tags,
-                pubkey: publicKey.toBase58(),
+                pubkey: walletPubkey, // ✅ Use the same pubkey variable
                 CID: fileHash,
                 thumbnail: data.thumbnail || undefined,
                 price: formattedPrice,
             };
 
             console.log("Submitting video data to database:", videoData);
+            console.log("  Creator pubkey:", walletPubkey);
+            console.log("  IPFS CID:", fileHash);
 
             const result = await createNewVideo(videoData);
 

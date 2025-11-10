@@ -19,29 +19,20 @@ export interface ApiResponse<T> {
 }
 
 export interface User {
+  id: number;
   pubkey: string;
-  username: string | null;
-  email: string | null;
-  bio: string | null;
-  profileImage: string | null;
-  subscriberCount: number;
-  totalVideos: number;
-  totalViews: number;
+  accountName: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreateUserRequest {
   pubkey: string;
-  username?: string;
-  email?: string;
+  accountName?: string;
 }
 
 export interface UpdateUserRequest {
-  username?: string;
-  email?: string;
-  bio?: string;
-  profileImage?: string;
+  accountName?: string;
 }
 
 // Video Types
@@ -55,6 +46,7 @@ export interface Video {
   description: string | null;
   thumbnailUrl: string | null;
   videoUrl: string;
+  ipfsCid?: string; // IPFS Content Identifier from Lighthouse
   duration: number;
   category: string | null;
   tags: string[];

@@ -73,7 +73,7 @@ export const createVideo = async (req: Request, res: Response) => {
         videoFormat: videoFormat || "mp4",
         videoResolution: videoResolution || null,
         price: price || "0.001",
-        status: "processing",
+        status: "ready", // Changed from "processing" to make videos immediately available
         isPublic: true,
       })
       .returning();
@@ -268,7 +268,7 @@ export const getAllVideos = async (req: Request, res: Response) => {
       page = 1,
       limit = 20,
       category,
-      status = "ready",
+      status,
       sortBy = "createdAt",
       order = "desc",
     } = req.query;
@@ -276,10 +276,12 @@ export const getAllVideos = async (req: Request, res: Response) => {
     const offset = (Number(page) - 1) * Number(limit);
 
     // Build where conditions
-    const conditions = [
-      eq(videos.isPublic, true),
-      eq(videos.status, status as any),
-    ];
+    const conditions = [eq(videos.isPublic, true)];
+
+    // Only filter by status if explicitly provided
+    if (status) {
+      conditions.push(eq(videos.status, status as any));
+    }
 
     if (category) {
       conditions.push(eq(videos.category, category as string));

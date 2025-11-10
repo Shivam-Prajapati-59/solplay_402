@@ -15,6 +15,7 @@ import playsRoutes from "./plays.routes";
 import transactionsRoutes from "./transactions.routes";
 import blockchainRoutes from "./blockchain.routes";
 import x402PaymentRoutes from "./x402-payment.routes";
+import settlementsRoutes from "./settlements.routes";
 
 const router = Router();
 
@@ -50,6 +51,9 @@ router.use("/transactions", transactionsRoutes);
 
 // Blockchain integration routes (/api/blockchain/*)
 router.use("/blockchain", blockchainRoutes);
+
+// Settlement history routes (/api/settlements/*)
+router.use("/settlements", settlementsRoutes);
 
 // x402 payment tracking routes (/api/x402/*)
 router.use("/x402", x402PaymentRoutes);
