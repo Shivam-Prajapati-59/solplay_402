@@ -88,14 +88,61 @@ export function PaymentVideoPlayerWithX402({
     };
 
     /**
-     * Initialize HLS player with x402 chunk tracking
+     * Initialize video player (HLS or native MP4)
      */
     useEffect(() => {
         if (!videoRef.current || !approved || !isReady) return;
 
         const video = videoRef.current;
 
-        if (Hls.isSupported()) {
+        // Check if this is an HLS playlist or direct MP4
+        const isHLS = playlistUrl.includes('.m3u8') || playlistUrl.includes('master.m3u');
+        const isMp4 = playlistUrl.includes('.mp4') || playlistUrl.includes('ipfs/');
+
+        console.log("🎬 Video URL:", playlistUrl);
+        console.log("  Is HLS:", isHLS);
+        console.log("  Is MP4:", isMp4);
+
+        // For MP4 files (including IPFS), use native video player
+        if (isMp4 && !isHLS) {
+            console.log("📹 Using native video player for MP4");
+            video.src = playlistUrl;
+
+            // For MP4, we track viewing at regular intervals instead of per-chunk
+            // Track every 30 seconds of viewing
+            const trackingInterval = setInterval(async () => {
+                if (!video.paused && video.currentTime > 0) {
+                    const chunkIndex = Math.floor(video.currentTime / 30); // 30-second chunks
+
+                    if (!loadedChunksRef.current.has(chunkIndex)) {
+                        console.log(`📊 Tracking view chunk ${chunkIndex} (${Math.floor(video.currentTime)}s)...`);
+
+                        try {
+                            await fetchChunk(videoId, chunkIndex);
+                            console.log(`✅ Chunk ${chunkIndex} tracked`);
+                            loadedChunksRef.current.add(chunkIndex);
+                            setCurrentChunk(chunkIndex);
+                        } catch (error: any) {
+                            console.error(`❌ Failed to track chunk ${chunkIndex}:`, error);
+
+                            if (error.message?.includes("Settlement required")) {
+                                video.pause();
+                                setShowSettlement(true);
+                            }
+                        }
+                    }
+                }
+            }, 5000); // Check every 5 seconds
+
+            return () => {
+                clearInterval(trackingInterval);
+                video.src = '';
+            };
+        }
+
+        // For HLS streams, use HLS.js
+        if (Hls.isSupported() && isHLS) {
+            console.log("📹 Using HLS.js for streaming");
             const hls = new Hls({
                 debug: false,
                 enableWorker: true,
@@ -167,8 +214,9 @@ export function PaymentVideoPlayerWithX402({
             return () => {
                 hls.destroy();
             };
-        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        } else if (video.canPlayType("application/vnd.apple.mpegurl") && isHLS) {
             // Native HLS support (Safari)
+            console.log("📹 Using native HLS support (Safari)");
             video.src = playlistUrl;
 
             // Track chunks manually for native HLS
@@ -186,6 +234,8 @@ export function PaymentVideoPlayerWithX402({
                         .catch(console.error);
                 }
             });
+        } else {
+            console.log("⚠️ No HLS support, playlistUrl:", playlistUrl);
         }
     }, [videoRef, approved, isReady, playlistUrl, videoId, fetchChunk]);
 

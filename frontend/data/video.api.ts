@@ -23,8 +23,14 @@ export const createVideo = async (data: CreateVideoRequest): Promise<Video> => {
  * Get video by ID
  */
 export const getVideoById = async (id: string): Promise<Video> => {
-  const response = await apiClient.get<Video>(`/api/videos/${id}`);
-  return response.data;
+  const response = await apiClient.get<{
+    success: boolean;
+    video: any;
+    isLiked: boolean;
+  }>(`/api/videos/${id}`);
+  // Backend returns { success, video: {...}, isLiked }
+  // We need to extract the video object
+  return response.data.video;
 };
 
 /**

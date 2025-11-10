@@ -204,6 +204,19 @@ export class BlockchainService {
     console.log("  Token Mint:", TOKEN_MINT.toString());
 
     try {
+      // Check wallet SOL balance first
+      console.log("💰 Checking wallet SOL balance...");
+      const balance = await this.connection.getBalance(this.wallet.publicKey);
+      const solBalance = balance / 1e9;
+      console.log(`  SOL Balance: ${solBalance} SOL`);
+
+      if (balance < 0.01 * 1e9) {
+        throw new Error(
+          `Insufficient SOL balance. You have ${solBalance} SOL but need at least 0.01 SOL for transaction fees. ` +
+            `Please get some SOL from the faucet: solana airdrop 1 ${this.wallet.publicKey.toString()}`
+        );
+      }
+
       // Get or create viewer token account
       console.log("📝 Getting viewer token account...");
       const viewerTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
@@ -235,23 +248,41 @@ export class BlockchainService {
       );
       console.log("  Needs Creation:", platformTokenAccountInfo.needsCreation);
 
-      // Build transaction
-      const tx = new Transaction();
+      // Create token accounts FIRST if needed (in a separate transaction)
+      if (
+        viewerTokenAccountInfo.needsCreation ||
+        platformTokenAccountInfo.needsCreation
+      ) {
+        console.log("💳 Creating token accounts first...");
+        const createAccountsTx = new Transaction();
 
-      // Add create token account instructions if needed
-      if (
-        viewerTokenAccountInfo.needsCreation &&
-        viewerTokenAccountInfo.instruction
-      ) {
-        console.log("  Adding viewer token account creation instruction");
-        tx.add(viewerTokenAccountInfo.instruction);
-      }
-      if (
-        platformTokenAccountInfo.needsCreation &&
-        platformTokenAccountInfo.instruction
-      ) {
-        console.log("  Adding platform token account creation instruction");
-        tx.add(platformTokenAccountInfo.instruction);
+        if (
+          viewerTokenAccountInfo.needsCreation &&
+          viewerTokenAccountInfo.instruction
+        ) {
+          console.log("  Adding viewer token account creation");
+          createAccountsTx.add(viewerTokenAccountInfo.instruction);
+        }
+        if (
+          platformTokenAccountInfo.needsCreation &&
+          platformTokenAccountInfo.instruction
+        ) {
+          console.log("  Adding platform token account creation");
+          createAccountsTx.add(platformTokenAccountInfo.instruction);
+        }
+
+        // Send and confirm the account creation transaction
+        console.log("  Sending account creation transaction...");
+
+        // Create provider to send transaction
+        const provider = new AnchorProvider(this.connection, this.wallet, {
+          commitment: "confirmed",
+        });
+
+        const createSig = await provider.sendAndConfirm(createAccountsTx);
+        console.log(`  ✅ Token accounts created! Signature: ${createSig}`);
+      } else {
+        console.log("  ✅ Token accounts already exist");
       }
 
       // Get video PDA
