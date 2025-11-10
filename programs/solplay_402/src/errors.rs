@@ -89,4 +89,16 @@ pub enum StreamingError {
 
     #[msg("Unauthorized platform initialization - must be program upgrade authority")]
     UnauthorizedPlatformInitialization,
+
+    #[msg("Settlement chunk count must be greater than zero")]
+    InvalidChunkCount,
+
+    #[msg("Settlement exceeds approved chunk limit")]
+    SettlementExceedsApproval,
+
+    #[msg("Settlement timestamp is older than session start time")]
+    SettlementTooOld,
+
+    #[msg("Settlement timestamp is in the future")]
+    SettlementInFuture,
 }

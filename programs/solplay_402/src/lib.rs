@@ -69,7 +69,19 @@ pub mod solplay_402 {
         instructions::approve_streaming_delegate(ctx, max_chunks)
     }
 
+    /// Settle a batch of chunks consumed via x402 HTTP streaming
+    /// Called by backend after accumulating chunk views off-chain
+    pub fn settle_session(
+        ctx: Context<SettleSession>,
+        chunk_count: u32,
+        settlement_timestamp: i64,
+    ) -> Result<()> {
+        instructions::settle_session(ctx, chunk_count, settlement_timestamp)
+    }
+
     /// Pay for a single chunk (sequential only)
+    /// NOTE: This instruction is kept for high-value content but bypassed
+    /// for x402 micropayments. Use settle_session() for batch settlement.
     pub fn pay_for_chunk(ctx: Context<PayForChunk>, chunk_index: u32) -> Result<()> {
         instructions::pay_for_chunk(ctx, chunk_index)
     }

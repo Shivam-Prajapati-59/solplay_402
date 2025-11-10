@@ -94,7 +94,6 @@ pub fn approve_streaming_delegate(ctx: Context<ApproveDelegate>, max_chunks: u32
         viewer_session.chunks_consumed = 0;
         viewer_session.total_spent = 0;
         viewer_session.approved_price_per_chunk = video.price_per_chunk;
-        viewer_session.last_paid_chunk_index = None;
         viewer_session.session_start = clock.unix_timestamp;
         viewer_session.last_activity = clock.unix_timestamp;
         viewer_session.bump = ctx.bumps.viewer_session;

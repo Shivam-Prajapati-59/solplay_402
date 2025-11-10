@@ -104,3 +104,21 @@ pub struct SessionExpired {
     pub reason: String, // Fixed values: "expired" or "inactive" (max ~10 chars)
     pub timestamp: i64,
 }
+
+// Event emitted when a batch settlement is processed (x402 flow)
+// This event is critical for backend synchronization - tracks off-chain
+// chunk consumption that was paid via HTTP x402 micropayments
+#[event]
+pub struct SessionSettled {
+    pub viewer: Pubkey,
+    pub video: Pubkey,
+    pub viewer_session: Pubkey,
+    pub chunk_count: u32,          // Number of chunks in this settlement batch
+    pub total_payment: u64,        // Total tokens paid (before split)
+    pub platform_fee: u64,         // 10% platform fee
+    pub creator_amount: u64,       // 90% to creator
+    pub chunks_consumed: u32,      // Total chunks consumed after settlement
+    pub chunks_remaining: u32,     // Chunks left in approval
+    pub settlement_timestamp: i64, // When settlement was requested
+    pub timestamp: i64,            // When settlement was processed on-chain
+}

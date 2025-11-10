@@ -104,19 +104,13 @@ pub fn pay_for_chunk(ctx: Context<PayForChunk>, chunk_index: u32) -> Result<()> 
         StreamingError::InsufficientApproval
     );
 
-    // Validation 5: Enforce sequential payment (PREVENTS RACE CONDITIONS)
-    require!(
-        viewer_session.is_next_chunk_sequential(chunk_index),
-        StreamingError::OutOfSequenceChunk
-    );
-
-    // Validation 6: Price lock protection (PREVENTS MID-SESSION PRICE CHANGES)
+    // Validation 5: Price lock protection (PREVENTS MID-SESSION PRICE CHANGES)
     require!(
         video.price_per_chunk == viewer_session.approved_price_per_chunk,
         StreamingError::PriceChangedSinceApproval
     );
 
-    // Validation 7: Check viewer has sufficient balance
+    // Validation 6: Check viewer has sufficient balance
     let chunk_price = video.price_per_chunk;
     require!(
         ctx.accounts.viewer_token_account.amount >= chunk_price,
@@ -161,7 +155,8 @@ pub fn pay_for_chunk(ctx: Context<PayForChunk>, chunk_index: u32) -> Result<()> 
     }
 
     // Update viewer session state
-    viewer_session.update_activity(clock.unix_timestamp, chunk_index);
+    viewer_session.last_activity = clock.unix_timestamp;
+    viewer_session.chunks_consumed += 1;
     viewer_session.total_spent = viewer_session
         .total_spent
         .checked_add(chunk_price)

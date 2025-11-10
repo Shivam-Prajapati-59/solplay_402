@@ -110,15 +110,14 @@ impl Video {
 
 #[account]
 pub struct ViewerSession {
-    pub viewer: Pubkey,                     // Viewer's wallet
-    pub video: Pubkey,                      // Video being watched
-    pub max_approved_chunks: u32,           // Total chunks approved by viewer
-    pub chunks_consumed: u32,               // Chunks already paid for
-    pub total_spent: u64,                   // Total tokens spent
-    pub approved_price_per_chunk: u64,      // Price locked at approval time
-    pub last_paid_chunk_index: Option<u32>, // Last sequential chunk paid (None = no chunks paid yet)
-    pub session_start: i64,                 // Unix timestamp
-    pub last_activity: i64,                 // Last chunk payment time
+    pub viewer: Pubkey,                // Viewer's wallet
+    pub video: Pubkey,                 // Video being watched
+    pub max_approved_chunks: u32,      // Total chunks approved by viewer
+    pub chunks_consumed: u32, // Chunks already paid for (updated in batches via settle_session)
+    pub total_spent: u64,     // Total tokens spent
+    pub approved_price_per_chunk: u64, // Price locked at approval time
+    pub session_start: i64,   // Unix timestamp
+    pub last_activity: i64,   // Last settlement or payment time
     pub bump: u8,
 }
 
@@ -130,7 +129,6 @@ impl ViewerSession {
         4 +  // chunks_consumed
         8 +  // total_spent
         8 +  // approved_price_per_chunk
-        5 +  // last_paid_chunk_index (Option<u32>: 1 byte discriminator + 4 bytes)
         8 +  // session_start
         8 +  // last_activity
         1; // bump
@@ -145,19 +143,6 @@ impl ViewerSession {
 
     pub fn has_approval_remaining(&self) -> bool {
         self.chunks_consumed < self.max_approved_chunks
-    }
-
-    pub fn is_next_chunk_sequential(&self, chunk_index: u32) -> bool {
-        match self.last_paid_chunk_index {
-            None => chunk_index == 0,              // First chunk must be index 0
-            Some(last) => chunk_index == last + 1, // Must be exactly next chunk
-        }
-    }
-
-    pub fn update_activity(&mut self, current_time: i64, chunk_index: u32) {
-        self.last_activity = current_time;
-        self.chunks_consumed += 1;
-        self.last_paid_chunk_index = Some(chunk_index);
     }
 }
 
