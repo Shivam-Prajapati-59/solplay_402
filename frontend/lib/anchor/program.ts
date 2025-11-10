@@ -4,15 +4,15 @@
 // Initializes and exports the Anchor program instance for SolPlay 402
 // =============================================================================
 
-import { AnchorProvider, Program, web3 } from "@coral-xyz/anchor";
+import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
-import type { Solplay402 } from "./types";
+import type { Solplay402 } from "../../../target/types/solplay_402";
 import IDL from "./idl.json";
 
 // Program ID from deployment
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID ||
-    "26vn3c6kbcr5GMTn5pJj4TShcwTFgJvMMjqdm5oVAxFf"
+    "CM19aL9CP8dRjVzRUEW6AMxYgftdSvPgQ5Yzniq5sPXV"
 );
 
 // Solana network configuration
@@ -39,8 +39,8 @@ export function getProgram(
     AnchorProvider.defaultOptions()
   );
 
-  // Create and return program
-  return new Program(IDL as any, provider) as Program<Solplay402>;
+  // Create and return program with proper typing
+  return new Program(IDL as Solplay402, provider);
 }
 
 /**
@@ -59,7 +59,7 @@ export function getReadOnlyProgram(
     AnchorProvider.defaultOptions()
   );
 
-  return new Program(IDL as any, provider) as Program<Solplay402>;
+  return new Program(IDL as Solplay402, provider);
 }
 
 // Export types

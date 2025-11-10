@@ -106,7 +106,7 @@ async function main() {
     try {
       const tx = await program.methods
         .initializePlatform(platformFeeBps, minPricePerChunk)
-        .accounts({
+        .accountsPartial({
           platform: platformPda,
           tokenMint: tokenMint,
           programData: programDataPda,

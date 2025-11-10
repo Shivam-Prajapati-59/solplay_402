@@ -7,7 +7,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("26vn3c6kbcr5GMTn5pJj4TShcwTFgJvMMjqdm5oVAxFf");
+declare_id!("CM19aL9CP8dRjVzRUEW6AMxYgftdSvPgQ5Yzniq5sPXV");
 
 // Module imports
 pub mod constants;

@@ -1,0 +1,10 @@
+{
+  "programId": "CM19aL9CP8dRjVzRUEW6AMxYgftdSvPgQ5Yzniq5sPXV",
+  "platformPda": "71MZxGt9suUrJBqG7FUKRf2F1QkEseEz9pipq4XqieJp",
+  "tokenMint": "J634xHvwT145KAKMMTPVKjYbgU5YpvX4ZYSkW9QFYu2K",
+  "platformAuthority": "GkCVmEaX6VF7fXTmufiFnTmcTToC3HobqBWKDuiTyDSY",
+  "network": "http://127.0.0.1:8899",
+  "platformFeeBps": 250,
+  "minPricePerChunk": "1000",
+  "timestamp": "2025-11-10T12:40:47.779Z"
+}

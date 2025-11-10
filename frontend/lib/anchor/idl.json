@@ -1,5 +1,5 @@
 {
-  "address": "26vn3c6kbcr5GMTn5pJj4TShcwTFgJvMMjqdm5oVAxFf",
+  "address": "CM19aL9CP8dRjVzRUEW6AMxYgftdSvPgQ5Yzniq5sPXV",
   "metadata": {
     "name": "solplay_402",
     "version": "0.1.0",
@@ -462,7 +462,9 @@
     {
       "name": "pay_for_chunk",
       "docs": [
-        "Pay for a single chunk (sequential only)"
+        "Pay for a single chunk (sequential only)",
+        "NOTE: This instruction is kept for high-value content but bypassed",
+        "for x402 micropayments. Use settle_session() for batch settlement."
       ],
       "discriminator": [
         108,
@@ -736,6 +738,180 @@
       "args": []
     },
     {
+      "name": "settle_session",
+      "docs": [
+        "Settle a batch of chunks consumed via x402 HTTP streaming",
+        "Called by backend after accumulating chunk views off-chain"
+      ],
+      "discriminator": [
+        156,
+        20,
+        180,
+        117,
+        117,
+        85,
+        225,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "viewer_session",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  105,
+                  101,
+                  119,
+                  101,
+                  114,
+                  95,
+                  115,
+                  101,
+                  115,
+                  115,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "viewer_session.viewer",
+                "account": "ViewerSession"
+              },
+              {
+                "kind": "account",
+                "path": "video"
+              }
+            ]
+          }
+        },
+        {
+          "name": "video",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  105,
+                  100,
+                  101,
+                  111
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "video.video_id",
+                "account": "Video"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator_earnings",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  114,
+                  101,
+                  97,
+                  116,
+                  111,
+                  114,
+                  95,
+                  101,
+                  97,
+                  114,
+                  110,
+                  105,
+                  110,
+                  103,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "video"
+              }
+            ]
+          }
+        },
+        {
+          "name": "platform",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  116,
+                  102,
+                  111,
+                  114,
+                  109
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "viewer_token_account",
+          "docs": [
+            "Viewer's token account (source of payment)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "creator_token_account",
+          "docs": [
+            "Creator's token account (receives payment)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "platform_token_account",
+          "docs": [
+            "Platform's token account (receives fees)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "viewer",
+          "docs": [
+            "Viewer wallet (must sign the settlement transaction)"
+          ],
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "chunk_count",
+          "type": "u32"
+        },
+        {
+          "name": "settlement_timestamp",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "update_video",
       "docs": [
         "Update video metadata or pricing"
@@ -952,6 +1128,19 @@
       ]
     },
     {
+      "name": "SessionSettled",
+      "discriminator": [
+        127,
+        161,
+        59,
+        136,
+        23,
+        168,
+        191,
+        149
+      ]
+    },
+    {
       "name": "VideoCreated",
       "discriminator": [
         111,
@@ -1118,6 +1307,26 @@
       "code": 6027,
       "name": "UnauthorizedPlatformInitialization",
       "msg": "Unauthorized platform initialization - must be program upgrade authority"
+    },
+    {
+      "code": 6028,
+      "name": "InvalidChunkCount",
+      "msg": "Settlement chunk count must be greater than zero"
+    },
+    {
+      "code": 6029,
+      "name": "SettlementExceedsApproval",
+      "msg": "Settlement exceeds approved chunk limit"
+    },
+    {
+      "code": 6030,
+      "name": "SettlementTooOld",
+      "msg": "Settlement timestamp is older than session start time"
+    },
+    {
+      "code": 6031,
+      "name": "SettlementInFuture",
+      "msg": "Settlement timestamp is in the future"
     }
   ],
   "types": [
@@ -1394,6 +1603,58 @@
       }
     },
     {
+      "name": "SessionSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "viewer",
+            "type": "pubkey"
+          },
+          {
+            "name": "video",
+            "type": "pubkey"
+          },
+          {
+            "name": "viewer_session",
+            "type": "pubkey"
+          },
+          {
+            "name": "chunk_count",
+            "type": "u32"
+          },
+          {
+            "name": "total_payment",
+            "type": "u64"
+          },
+          {
+            "name": "platform_fee",
+            "type": "u64"
+          },
+          {
+            "name": "creator_amount",
+            "type": "u64"
+          },
+          {
+            "name": "chunks_consumed",
+            "type": "u32"
+          },
+          {
+            "name": "chunks_remaining",
+            "type": "u32"
+          },
+          {
+            "name": "settlement_timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Video",
       "type": {
         "kind": "struct",
@@ -1549,12 +1810,6 @@
           {
             "name": "approved_price_per_chunk",
             "type": "u64"
-          },
-          {
-            "name": "last_paid_chunk_index",
-            "type": {
-              "option": "u32"
-            }
           },
           {
             "name": "session_start",
