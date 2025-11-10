@@ -13,6 +13,7 @@ import path from "path";
 import fs from "fs";
 import axios from "axios";
 import { transcodeToHLS } from "../utils/trancrodeToHLS";
+import { chunkPaymentTracker } from "../services/chunk-payment-tracker.service";
 
 // Get directories
 const uploadsDir = path.join(__dirname, "..", "..", "uploads");
@@ -213,13 +214,38 @@ export const servePlaylist = (req: Request, res: Response) => {
 /**
  * Serve HLS video segments (.ts) files
  * These are the actual video chunks referenced by the playlist
+ * After x402 payment verification, tracks the chunk delivery
  */
-export const serveSegment = (req: Request, res: Response) => {
+export const serveSegment = async (req: Request, res: Response) => {
   const { videoId, segment } = req.params;
   const segmentPath = path.join(hlsDir, videoId, segment);
 
   if (!fs.existsSync(segmentPath)) {
     return res.status(404).send("Segment not found");
+  }
+
+  // Track chunk delivery after successful x402 payment
+  // The x402 middleware has already verified payment before this point
+  try {
+    // Extract viewer wallet from request (set by middleware or query param)
+    const viewerWallet = req.query.wallet as string | undefined;
+
+    if (viewerWallet && videoId) {
+      // Record the chunk view for settlement tracking
+      await chunkPaymentTracker.recordChunkView(
+        videoId,
+        viewerWallet,
+        segment,
+        "$0.001" // Price from x402 middleware config
+      );
+
+      console.log(
+        `📊 Tracked chunk delivery: ${videoId}/${segment} for ${viewerWallet}`
+      );
+    }
+  } catch (error) {
+    // Don't fail segment delivery if tracking fails
+    console.error("⚠️ Failed to track chunk delivery:", error);
   }
 
   res.setHeader("Content-Type", "video/mp2t");

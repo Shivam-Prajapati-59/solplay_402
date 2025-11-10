@@ -72,6 +72,15 @@ export const videos = pgTable(
     thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
     hlsPlaylistUrl: varchar("hls_playlist_url", { length: 500 }),
 
+    // Blockchain Integration
+    blockchainVideoId: varchar("blockchain_video_id", { length: 100 }), // Unique ID used on-chain
+    videoPda: varchar("video_pda", { length: 500 }), // Video PDA address
+    creatorEarningsPda: varchar("creator_earnings_pda", { length: 500 }), // Creator earnings PDA
+    totalChunks: integer("total_chunks"), // Total HLS chunks (for blockchain)
+    pricePerChunk: bigint("price_per_chunk", { mode: "number" }), // Price per chunk in tokens (smallest unit)
+    isOnChain: boolean("is_on_chain").default(false).notNull(), // Whether registered on blockchain
+    onChainCreatedAt: timestamp("on_chain_created_at"), // When registered on blockchain
+
     // Video metadata
     duration: integer("duration"), // Duration in seconds
     videoSize: bigint("video_size", { mode: "number" }), // Size in bytes
@@ -201,6 +210,106 @@ export const comments = pgTable(
 );
 
 // =============================================================================
+// Blockchain Sessions Table (Viewer Sessions)
+// =============================================================================
+
+export const blockchainSessions = pgTable(
+  "blockchain_sessions",
+  {
+    id: serial("id").primaryKey(),
+    sessionPda: varchar("session_pda", { length: 500 }).notNull().unique(),
+    videoId: integer("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    viewerPubkey: varchar("viewer_pubkey", { length: 500 }).notNull(),
+
+    // Session details from blockchain
+    maxApprovedChunks: integer("max_approved_chunks").notNull(),
+    chunksConsumed: integer("chunks_consumed").default(0).notNull(),
+    totalSpent: bigint("total_spent", { mode: "number" }).default(0).notNull(),
+    approvedPricePerChunk: bigint("approved_price_per_chunk", {
+      mode: "number",
+    }).notNull(),
+    lastPaidChunkIndex: integer("last_paid_chunk_index"),
+
+    // Session timestamps
+    sessionStart: timestamp("session_start").notNull(),
+    lastActivity: timestamp("last_activity").notNull(),
+    sessionEnd: timestamp("session_end"),
+
+    // Status
+    isActive: boolean("is_active").default(true).notNull(),
+
+    // Transaction signature for approval
+    approvalSignature: varchar("approval_signature", { length: 500 }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      videoIdx: index("blockchain_sessions_video_idx").on(table.videoId),
+      viewerIdx: index("blockchain_sessions_viewer_idx").on(table.viewerPubkey),
+      sessionPdaIdx: index("blockchain_sessions_pda_idx").on(table.sessionPda),
+      activeIdx: index("blockchain_sessions_active_idx").on(table.isActive),
+    };
+  }
+);
+
+// =============================================================================
+// Chunk Payments Table (Individual chunk payment tracking)
+// =============================================================================
+
+export const chunkPayments = pgTable(
+  "chunk_payments",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => blockchainSessions.id, { onDelete: "cascade" }),
+    videoId: integer("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+
+    // Chunk details
+    chunkIndex: integer("chunk_index").notNull(),
+    paymentSequence: integer("payment_sequence").notNull(), // Order of payment
+
+    // Payment amounts (in smallest token unit)
+    amountPaid: bigint("amount_paid", { mode: "number" }).notNull(),
+    platformFee: bigint("platform_fee", { mode: "number" }).notNull(),
+    creatorAmount: bigint("creator_amount", { mode: "number" }).notNull(),
+
+    // Transaction info
+    transactionSignature: varchar("transaction_signature", {
+      length: 500,
+    }).notNull(),
+
+    // Participants
+    viewerPubkey: varchar("viewer_pubkey", { length: 500 }).notNull(),
+    creatorPubkey: varchar("creator_pubkey", { length: 500 }).notNull(),
+
+    paidAt: timestamp("paid_at").defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      sessionIdx: index("chunk_payments_session_idx").on(table.sessionId),
+      videoIdx: index("chunk_payments_video_idx").on(table.videoId),
+      signatureIdx: index("chunk_payments_signature_idx").on(
+        table.transactionSignature
+      ),
+      viewerIdx: index("chunk_payments_viewer_idx").on(table.viewerPubkey),
+      creatorIdx: index("chunk_payments_creator_idx").on(table.creatorPubkey),
+      // Composite unique: Each chunk can only be paid once per session
+      sessionChunkUnique: uniqueIndex("chunk_payments_session_chunk_unique").on(
+        table.sessionId,
+        table.chunkIndex
+      ),
+    };
+  }
+);
+
+// =============================================================================
 // Transactions Table (Payment Tracking)
 // =============================================================================
 
@@ -270,3 +379,11 @@ export type NewComment = typeof comments.$inferInsert;
 // Transactions
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
+
+// Blockchain Sessions
+export type BlockchainSession = typeof blockchainSessions.$inferSelect;
+export type NewBlockchainSession = typeof blockchainSessions.$inferInsert;
+
+// Chunk Payments
+export type ChunkPayment = typeof chunkPayments.$inferSelect;
+export type NewChunkPayment = typeof chunkPayments.$inferInsert;

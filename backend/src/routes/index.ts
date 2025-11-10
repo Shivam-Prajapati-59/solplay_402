@@ -13,6 +13,8 @@ import likesRoutes from "./likes.routes";
 import commentsRoutes from "./comments.routes";
 import playsRoutes from "./plays.routes";
 import transactionsRoutes from "./transactions.routes";
+import blockchainRoutes from "./blockchain.routes";
+import x402PaymentRoutes from "./x402-payment.routes";
 
 const router = Router();
 
@@ -46,5 +48,11 @@ router.use("/api/plays", playsRoutes);
 
 // Transaction & revenue routes (/api/transactions/*)
 router.use("/api/transactions", transactionsRoutes);
+
+// Blockchain integration routes (/api/blockchain/*)
+router.use("/api/blockchain", blockchainRoutes);
+
+// x402 payment tracking routes (/api/x402/*)
+router.use("/api/x402", x402PaymentRoutes);
 
 export default router;
