@@ -12,7 +12,12 @@ import {
 } from "@solana/web3.js";
 import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
 import { db } from "../db";
-import { videos, blockchainSessions, chunkPayments } from "../db/schema";
+import {
+  videos,
+  blockchainSessions,
+  chunkPayments,
+  settlements,
+} from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { EventEmitter } from "events";
 import IDL from "../../../target/idl/solplay_402.json";
@@ -60,10 +65,18 @@ export class BlockchainListenerService extends EventEmitter {
       throw new Error("SOLANA_PROGRAM_ID not configured");
     }
 
-    this.connection = new Connection(rpcUrl, {
+    // Don't specify wsEndpoint for localhost - it doesn't support WebSocket
+    // For production, use a provider that supports WebSocket (Alchemy, Helius, etc.)
+    const connectionConfig: any = {
       commitment: "confirmed",
-      wsEndpoint: rpcUrl.replace("http", "ws"),
-    });
+    };
+
+    // Only add wsEndpoint for non-localhost URLs
+    if (!rpcUrl.includes("localhost") && !rpcUrl.includes("127.0.0.1")) {
+      connectionConfig.wsEndpoint = rpcUrl.replace("http", "ws");
+    }
+
+    this.connection = new Connection(rpcUrl, connectionConfig);
 
     this.programId = new PublicKey(programIdStr);
 
@@ -91,26 +104,45 @@ export class BlockchainListenerService extends EventEmitter {
       `Starting blockchain listener for program: ${this.programId.toBase58()}`
     );
 
+    const rpcUrl = process.env.SOLANA_RPC_URL || "http://localhost:8899";
+    const isLocalhost =
+      rpcUrl.includes("localhost") || rpcUrl.includes("127.0.0.1");
+
     try {
-      // Subscribe to program logs
-      this.subscriptionId = this.connection.onLogs(
-        this.programId,
-        async (logs, context) => {
-          try {
-            await this.handleLogs(logs, context.slot);
-          } catch (error) {
-            console.error("Error processing logs:", error);
-            this.emit("error", error);
-          }
-        },
-        "confirmed"
-      );
+      // Only use WebSocket subscriptions for non-localhost (production)
+      if (!isLocalhost) {
+        try {
+          // Subscribe to program logs
+          this.subscriptionId = this.connection.onLogs(
+            this.programId,
+            async (logs, context) => {
+              try {
+                await this.handleLogs(logs, context.slot);
+              } catch (error) {
+                console.error("Error processing logs:", error);
+                this.emit("error", error);
+              }
+            },
+            "confirmed"
+          );
+          console.log("✅ WebSocket subscription active");
+        } catch (wsError) {
+          console.warn(
+            "WebSocket subscription failed, falling back to polling:",
+            wsError
+          );
+        }
+      } else {
+        console.log(
+          "📊 Using polling mode for localhost (WebSocket not supported)"
+        );
+      }
 
       this.isListening = true;
       console.log("✅ Blockchain listener started successfully");
       this.emit("started");
 
-      // Also poll for recent transactions periodically
+      // Start polling for transactions (works for both localhost and production)
       this.startPolling();
     } catch (error) {
       console.error("Failed to start blockchain listener:", error);
@@ -222,12 +254,14 @@ export class BlockchainListenerService extends EventEmitter {
         1: "createVideo",
         2: "updateVideo",
         3: "approveDelegate",
-        4: "payForChunk",
-        5: "revokeDelegate",
-        6: "closeSession",
+        4: "settleSession",
+        5: "payForChunk",
+        6: "revokeDelegate",
+        7: "closeSession",
       };
 
-      const instructionName = instructionMap[discriminator] || "unknown";
+      const instructionName: string =
+        instructionMap[Number(discriminator)] || "unknown";
 
       if (instructionName === "unknown") {
         console.log("Unknown instruction discriminator:", discriminator);
@@ -250,6 +284,10 @@ export class BlockchainListenerService extends EventEmitter {
 
         case "approveDelegate":
           await this.handleDelegateApproved(instruction, tx, signature);
+          break;
+
+        case "settleSession":
+          await this.handleSettleSession(instruction, tx, signature);
           break;
 
         case "payForChunk":
@@ -417,6 +455,120 @@ export class BlockchainListenerService extends EventEmitter {
       });
     } catch (error) {
       console.error("Error handling DelegateApproved:", error);
+    }
+  }
+
+  /**
+   * Handle SettleSession event (batch settlement)
+   */
+  private async handleSettleSession(
+    instruction: PartiallyDecodedInstruction,
+    tx: ParsedTransactionWithMeta,
+    signature: string
+  ): Promise<void> {
+    try {
+      const sessionPda = instruction.accounts[0]; // ViewerSession PDA
+      const videoPda = instruction.accounts[1]; // Video PDA
+      const viewer = instruction.accounts[7]; // Viewer signer
+
+      // Fetch session and video data
+      const sessionAccount: any = await (
+        this.program.account as any
+      ).viewerSession.fetch(sessionPda);
+      const videoAccount: any = await (this.program.account as any).video.fetch(
+        videoPda
+      );
+
+      // Find session in database
+      const sessions = await db
+        .select()
+        .from(blockchainSessions)
+        .where(eq(blockchainSessions.sessionPda, sessionPda.toBase58()))
+        .limit(1);
+
+      if (sessions.length === 0) {
+        console.warn(`Session ${sessionPda.toBase58()} not found`);
+        return;
+      }
+
+      const session = sessions[0];
+
+      // Get video for creator info
+      const videoData = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.id, session.videoId))
+        .limit(1);
+
+      if (videoData.length === 0) {
+        console.warn(`Video ${session.videoId} not found`);
+        return;
+      }
+
+      const video = videoData[0];
+
+      // Calculate settlement details from session state
+      const newChunksConsumed = sessionAccount.chunksConsumed;
+      const previousChunksConsumed = session.chunksConsumed;
+      const chunkCount = newChunksConsumed - previousChunksConsumed;
+
+      const pricePerChunk = Number(sessionAccount.approvedPricePerChunk || 0);
+      const totalPayment = chunkCount * pricePerChunk;
+
+      // Calculate platform fee (5% = 500 basis points)
+      const platformFee = Math.floor(totalPayment * 0.05);
+      const creatorAmount = totalPayment - platformFee;
+
+      const chunksRemaining =
+        sessionAccount.maxApprovedChunks - newChunksConsumed;
+
+      // Get block time from transaction
+      const blockTime = tx.blockTime
+        ? new Date(tx.blockTime * 1000)
+        : new Date();
+
+      // Record settlement
+      await db.insert(settlements).values({
+        sessionId: session.id,
+        videoId: video.id,
+        chunkCount,
+        totalPayment,
+        platformFee,
+        creatorAmount,
+        transactionSignature: signature,
+        blockTime,
+        slot: Number(tx.slot),
+        viewerPubkey: viewer.toBase58(),
+        creatorPubkey: video.creatorPubkey,
+        chunksConsumedAfter: newChunksConsumed,
+        chunksRemaining,
+        settlementTimestamp: blockTime,
+        createdAt: new Date(),
+      });
+
+      // Update session state
+      await db
+        .update(blockchainSessions)
+        .set({
+          chunksConsumed: newChunksConsumed,
+          totalSpent: Number(sessionAccount.totalSpent || 0),
+          lastActivity: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(blockchainSessions.id, session.id));
+
+      console.log(
+        `✅ Settlement recorded: ${chunkCount} chunks, signature: ${signature}`
+      );
+      this.emit("settlementRecorded", {
+        sessionPda: sessionPda.toBase58(),
+        chunkCount,
+        totalPayment,
+        signature,
+      });
+    } catch (error) {
+      console.error("Error handling SettleSession:", error);
+      this.emit("error", error);
     }
   }
 

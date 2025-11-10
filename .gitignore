@@ -8,3 +8,4 @@ test-ledger
 
 # Backend uploads (HLS transcoded videos)
 backend/uploads/
+.env

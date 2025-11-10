@@ -27,32 +27,34 @@ router.use("/", healthRoutes);
 // =============================================================================
 // API Routes
 // =============================================================================
-
-// Video streaming routes (legacy HLS streaming)
-router.use("/api", videoRoutes);
+// NOTE: Order matters! Specific routes MUST come before catch-all routes
+// NOTE: These routes are already prefixed with /api in app.ts, so don't add /api here
 
 // User management routes (/api/users/*)
-router.use("/api/users", userRoutes);
+router.use("/users", userRoutes);
 
-// Video management routes (/api/videos/*)
-router.use("/api/videos", videoManagementRoutes);
+// Video management routes (/api/videos/*) - MUST come before generic video routes
+router.use("/videos", videoManagementRoutes);
 
 // Like/unlike routes (/api/likes/*)
-router.use("/api/likes", likesRoutes);
+router.use("/likes", likesRoutes);
 
 // Comment routes (/api/comments/*)
-router.use("/api/comments", commentsRoutes);
+router.use("/comments", commentsRoutes);
 
 // Play tracking & analytics routes (/api/plays/*)
-router.use("/api/plays", playsRoutes);
+router.use("/plays", playsRoutes);
 
 // Transaction & revenue routes (/api/transactions/*)
-router.use("/api/transactions", transactionsRoutes);
+router.use("/transactions", transactionsRoutes);
 
 // Blockchain integration routes (/api/blockchain/*)
-router.use("/api/blockchain", blockchainRoutes);
+router.use("/blockchain", blockchainRoutes);
 
 // x402 payment tracking routes (/api/x402/*)
-router.use("/api/x402", x402PaymentRoutes);
+router.use("/x402", x402PaymentRoutes);
+
+// Video streaming routes (legacy HLS streaming) - These have no prefix, so they get /api directly
+router.use("/", videoRoutes);
 
 export default router;

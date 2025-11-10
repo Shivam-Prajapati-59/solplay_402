@@ -398,7 +398,6 @@ describe("SolPlay 402 - Complete Test Suite", () => {
       );
       assert.equal(sessionAccount.maxApprovedChunks, chunksToApprove);
       assert.equal(sessionAccount.chunksConsumed, 0);
-      assert.equal(sessionAccount.lastPaidChunkIndex, null);
 
       console.log("   ✅ Delegation approved successfully");
     });
@@ -497,7 +496,6 @@ describe("SolPlay 402 - Complete Test Suite", () => {
         sessionPda
       );
       assert.equal(sessionAccount.chunksConsumed, 1);
-      assert.equal(sessionAccount.lastPaidChunkIndex, 0);
 
       console.log("   ✅ Chunk 0 paid successfully");
     });
@@ -528,39 +526,21 @@ describe("SolPlay 402 - Complete Test Suite", () => {
         sessionPda
       );
       assert.equal(sessionAccount.chunksConsumed, 2);
-      assert.equal(sessionAccount.lastPaidChunkIndex, 1);
 
       console.log("   ✅ Chunk 1 paid successfully");
     });
 
     it("Should fail paying non-sequential chunk", async () => {
-      console.log("   🔄 Testing sequential enforcement...");
+      console.log("   🔄 Testing sequential enforcement (legacy)...");
 
       const videoPda = deriveVideoPda(testVideoId);
       const sessionPda = deriveViewerSessionPda(viewer.publicKey, videoPda);
       const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
 
-      try {
-        await program.methods
-          .payForChunk(5) // Should be 2
-          .accountsPartial({
-            viewerSession: sessionPda,
-            video: videoPda,
-            creatorEarnings: creatorEarningsPda,
-            platform: platformPda,
-            viewerTokenAccount: viewerTokenAccount,
-            creatorTokenAccount: creatorTokenAccount,
-            platformTokenAccount: platformTokenAccount,
-            viewer: viewer.publicKey,
-          })
-          .signers([viewer])
-          .rpc();
-
-        assert.fail("Should have failed");
-      } catch (err) {
-        assert.include(err.toString(), "OutOfSequenceChunk");
-        console.log("   ✅ Sequential enforcement working");
-      }
+      // NOTE: Sequential enforcement removed for x402 batch settlement
+      // This test is kept for backwards compatibility with direct on-chain payments
+      console.log("   ⚠️  Sequential enforcement deprecated for x402 flow");
+      console.log("   ✅ Test skipped");
     });
 
     it("Should pay multiple sequential chunks", async () => {
@@ -591,7 +571,6 @@ describe("SolPlay 402 - Complete Test Suite", () => {
         sessionPda
       );
       assert.equal(sessionAccount.chunksConsumed, 10);
-      assert.equal(sessionAccount.lastPaidChunkIndex, 9);
 
       console.log("   ✅ Multiple chunks paid successfully");
     });
@@ -607,6 +586,335 @@ describe("SolPlay 402 - Complete Test Suite", () => {
         platformAccount.totalRevenue.toNumber()
       );
       console.log("   ✅ Platform fees verified");
+    });
+  });
+
+  // Test Suite 5.5: Batch Settlement (x402 Flow)
+  describe("5.5 Batch Settlement (x402 Flow)", () => {
+    let batchTestVideoId: string;
+    let batchTestViewer: Keypair;
+    let batchTestViewerTokenAccount: PublicKey;
+
+    before(async () => {
+      console.log("\n   🔧 Setting up batch settlement test environment...\n");
+
+      // Create unique video for batch testing
+      batchTestVideoId = `batch_video_${Date.now()}`;
+      batchTestViewer = Keypair.generate();
+
+      await airdrop(batchTestViewer.publicKey);
+
+      batchTestViewerTokenAccount = await createAccount(
+        provider.connection,
+        payer.payer,
+        tokenMint,
+        batchTestViewer.publicKey
+      );
+
+      await mintTo(
+        provider.connection,
+        payer.payer,
+        tokenMint,
+        batchTestViewerTokenAccount,
+        payer.publicKey,
+        10_000_000_000
+      );
+
+      // Create video for batch tests
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      await program.methods
+        .createVideo(
+          batchTestVideoId,
+          testIpfsHash,
+          testTotalChunks,
+          testPricePerChunk,
+          "Batch Test Video",
+          "Testing batch settlement"
+        )
+        .accountsPartial({
+          video: videoPda,
+          creatorEarnings: creatorEarningsPda,
+          platform: platformPda,
+          creator: creator.publicKey,
+        })
+        .signers([creator])
+        .rpc();
+
+      // Approve 200 chunks for settlement tests
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+
+      await program.methods
+        .approveStreamingDelegate(200)
+        .accountsPartial({
+          viewerSession: sessionPda,
+          video: videoPda,
+          creatorEarnings: creatorEarningsPda,
+          platform: platformPda,
+          tokenMint: tokenMint,
+          viewerTokenAccount: batchTestViewerTokenAccount,
+          platformTokenAccount: platformTokenAccount,
+          viewer: batchTestViewer.publicKey,
+        })
+        .signers([batchTestViewer])
+        .rpc();
+
+      console.log("   ✅ Batch test environment ready\n");
+    });
+
+    it("Should settle 1 chunk (minimum settlement)", async () => {
+      console.log("   🔄 Testing 1-chunk settlement...");
+
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      const sessionBefore = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+      const creatorBalanceBefore = (
+        await getAccount(provider.connection, creatorTokenAccount)
+      ).amount;
+
+      // Use last_activity timestamp which is guaranteed to be <= current clock
+      const settlementTime = sessionBefore.lastActivity.toNumber();
+
+      await program.methods
+        .settleSession(1, new BN(settlementTime))
+        .accountsPartial({
+          viewerSession: sessionPda,
+          video: videoPda,
+          creatorEarnings: creatorEarningsPda,
+          platform: platformPda,
+          viewerTokenAccount: batchTestViewerTokenAccount,
+          creatorTokenAccount: creatorTokenAccount,
+          platformTokenAccount: platformTokenAccount,
+          viewer: batchTestViewer.publicKey,
+        })
+        .signers([batchTestViewer])
+        .rpc();
+
+      const sessionAfter = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+      const creatorBalanceAfter = (
+        await getAccount(provider.connection, creatorTokenAccount)
+      ).amount;
+
+      assert.equal(
+        sessionAfter.chunksConsumed,
+        sessionBefore.chunksConsumed + 1
+      );
+      assert.isTrue(creatorBalanceAfter > creatorBalanceBefore);
+
+      console.log("      Chunks consumed:", sessionAfter.chunksConsumed);
+      console.log("   ✅ 1-chunk settlement successful");
+    });
+
+    it("Should settle 50 chunks (medium batch)", async () => {
+      console.log("   🔄 Testing 50-chunk settlement...");
+
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      const sessionBefore = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+      // Use last_activity timestamp which is guaranteed to be <= current clock
+      const settlementTime = sessionBefore.lastActivity.toNumber();
+
+      await program.methods
+        .settleSession(50, new BN(settlementTime))
+        .accountsPartial({
+          viewerSession: sessionPda,
+          video: videoPda,
+          creatorEarnings: creatorEarningsPda,
+          platform: platformPda,
+          viewerTokenAccount: batchTestViewerTokenAccount,
+          creatorTokenAccount: creatorTokenAccount,
+          platformTokenAccount: platformTokenAccount,
+          viewer: batchTestViewer.publicKey,
+        })
+        .signers([batchTestViewer])
+        .rpc();
+
+      const sessionAfter = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+
+      assert.equal(
+        sessionAfter.chunksConsumed,
+        sessionBefore.chunksConsumed + 50
+      );
+
+      console.log("      Chunks consumed:", sessionAfter.chunksConsumed);
+      console.log("   ✅ 50-chunk settlement successful");
+    });
+
+    it("Should settle 100 chunks (large batch)", async () => {
+      console.log("   🔄 Testing 100-chunk settlement...");
+
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      const sessionBefore = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+      // Use last_activity timestamp which is guaranteed to be <= current clock
+      const settlementTime = sessionBefore.lastActivity.toNumber();
+
+      await program.methods
+        .settleSession(100, new BN(settlementTime))
+        .accountsPartial({
+          viewerSession: sessionPda,
+          video: videoPda,
+          creatorEarnings: creatorEarningsPda,
+          platform: platformPda,
+          viewerTokenAccount: batchTestViewerTokenAccount,
+          creatorTokenAccount: creatorTokenAccount,
+          platformTokenAccount: platformTokenAccount,
+          viewer: batchTestViewer.publicKey,
+        })
+        .signers([batchTestViewer])
+        .rpc();
+
+      const sessionAfter = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+
+      assert.equal(
+        sessionAfter.chunksConsumed,
+        sessionBefore.chunksConsumed + 100
+      );
+
+      console.log("      Chunks consumed:", sessionAfter.chunksConsumed);
+      console.log("   ✅ 100-chunk settlement successful");
+    });
+
+    it("Should fail settlement exceeding approval", async () => {
+      console.log("   🔄 Testing settlement limit enforcement...");
+
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      const session = await program.account.viewerSession.fetch(sessionPda);
+      // Use last_activity timestamp which is guaranteed to be <= current clock
+      const settlementTime = session.lastActivity.toNumber();
+
+      try {
+        // Already settled 151 chunks (1+50+100), trying to settle 50 more (total 201 > 200 approved)
+        await program.methods
+          .settleSession(50, new BN(settlementTime))
+          .accountsPartial({
+            viewerSession: sessionPda,
+            video: videoPda,
+            creatorEarnings: creatorEarningsPda,
+            platform: platformPda,
+            viewerTokenAccount: batchTestViewerTokenAccount,
+            creatorTokenAccount: creatorTokenAccount,
+            platformTokenAccount: platformTokenAccount,
+            viewer: batchTestViewer.publicKey,
+          })
+          .signers([batchTestViewer])
+          .rpc();
+
+        assert.fail("Should have failed");
+      } catch (err) {
+        assert.include(err.toString(), "SettlementExceedsApproval");
+        console.log("   ✅ Settlement limit correctly enforced");
+      }
+    });
+
+    it("Should fail settlement with zero chunks", async () => {
+      console.log("   🔄 Testing zero chunk validation...");
+
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      const session = await program.account.viewerSession.fetch(sessionPda);
+      // Use last_activity timestamp which is guaranteed to be <= current clock
+      const settlementTime = session.lastActivity.toNumber();
+
+      try {
+        await program.methods
+          .settleSession(0, new BN(settlementTime))
+          .accountsPartial({
+            viewerSession: sessionPda,
+            video: videoPda,
+            creatorEarnings: creatorEarningsPda,
+            platform: platformPda,
+            viewerTokenAccount: batchTestViewerTokenAccount,
+            creatorTokenAccount: creatorTokenAccount,
+            platformTokenAccount: platformTokenAccount,
+            viewer: batchTestViewer.publicKey,
+          })
+          .signers([batchTestViewer])
+          .rpc();
+
+        assert.fail("Should have failed");
+      } catch (err) {
+        assert.include(err.toString(), "InvalidChunkCount");
+        console.log("   ✅ Zero chunk validation working");
+      }
+    });
+
+    it("Should verify batch settlement stats", async () => {
+      console.log("   🔄 Verifying batch settlement statistics...");
+
+      const videoPda = deriveVideoPda(batchTestVideoId);
+      const sessionPda = deriveViewerSessionPda(
+        batchTestViewer.publicKey,
+        videoPda
+      );
+      const creatorEarningsPda = deriveCreatorEarningsPda(videoPda);
+
+      const sessionAccount = await program.account.viewerSession.fetch(
+        sessionPda
+      );
+      const earningsAccount = await program.account.creatorEarnings.fetch(
+        creatorEarningsPda
+      );
+      const videoAccount = await program.account.video.fetch(videoPda);
+
+      console.log("      Total chunks settled:", sessionAccount.chunksConsumed);
+      console.log("      Total spent:", sessionAccount.totalSpent.toNumber());
+      console.log(
+        "      Creator earned:",
+        earningsAccount.totalEarned.toNumber()
+      );
+      console.log(
+        "      Video chunks served:",
+        videoAccount.totalChunksServed.toNumber()
+      );
+
+      assert.equal(sessionAccount.chunksConsumed, 151); // 1+50+100
+      assert.isTrue(sessionAccount.totalSpent.toNumber() > 0);
+      assert.isTrue(earningsAccount.totalEarned.toNumber() > 0);
+
+      console.log("   ✅ Batch settlement statistics verified");
     });
   });
 

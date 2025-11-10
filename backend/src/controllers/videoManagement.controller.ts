@@ -6,7 +6,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../db";
-import { videos, likes, comments, plays } from "../db/schema";
+import { videos, users, likes, comments, plays } from "../db/schema";
 import { eq, desc, sql, and, or, ilike, inArray } from "drizzle-orm";
 
 // =============================================================================
@@ -39,6 +39,22 @@ export const createVideo = async (req: Request, res: Response) => {
       return res.status(400).json({
         error: "Missing required fields: title, creatorPubkey, ipfsCid",
       });
+    }
+
+    // Ensure user exists (auto-create if not)
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.pubkey, creatorPubkey))
+      .limit(1);
+
+    if (existingUser.length === 0) {
+      // Auto-create user
+      await db.insert(users).values({
+        pubkey: creatorPubkey,
+        accountName: null,
+      });
+      console.log(`✅ Auto-created user: ${creatorPubkey}`);
     }
 
     // Create video

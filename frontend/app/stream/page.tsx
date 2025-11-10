@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 interface Video {
     name: string
     videoId: string
@@ -28,7 +30,7 @@ const StreamingPage = () => {
 
     const fetchVideos = async () => {
         try {
-            const response = await fetch('http://localhost:5000/api/videos')
+            const response = await fetch(`${API_BASE_URL}/api/videos`)
             const data = await response.json()
             setVideos(data.videos)
         } catch (err) {
@@ -45,7 +47,7 @@ const StreamingPage = () => {
         setError(null)
 
         const video = videoRef.current
-        const fullUrl = `http://localhost:5000${playlistUrl}`
+        const fullUrl = `${API_BASE_URL}${playlistUrl}`
 
         if (Hls.isSupported()) {
             // Destroy existing HLS instance if any
@@ -113,7 +115,7 @@ const StreamingPage = () => {
         setError(null)
 
         try {
-            const response = await fetch('http://localhost:5000/api/transcode', {
+            const response = await fetch(`${API_BASE_URL}/api/transcode`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -144,7 +146,7 @@ const StreamingPage = () => {
         setError(null)
 
         try {
-            const response = await fetch('http://localhost:5000/api/transcode-url', {
+            const response = await fetch(`${API_BASE_URL}/api/transcode-url`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -180,7 +182,7 @@ const StreamingPage = () => {
         setError(null)
 
         try {
-            const response = await fetch('http://localhost:5000/api/test-ipfs', {
+            const response = await fetch(`${API_BASE_URL}/api/test-ipfs`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

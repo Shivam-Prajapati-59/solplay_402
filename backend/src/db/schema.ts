@@ -310,6 +310,62 @@ export const chunkPayments = pgTable(
 );
 
 // =============================================================================
+// Settlements Table (Batch Settlement Records)
+// =============================================================================
+
+export const settlements = pgTable(
+  "settlements",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => blockchainSessions.id, { onDelete: "cascade" }),
+    videoId: integer("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+
+    // Settlement details
+    chunkCount: integer("chunk_count").notNull(),
+    totalPayment: bigint("total_payment", { mode: "number" }).notNull(),
+    platformFee: bigint("platform_fee", { mode: "number" }).notNull(),
+    creatorAmount: bigint("creator_amount", { mode: "number" }).notNull(),
+
+    // Blockchain info
+    transactionSignature: varchar("transaction_signature", {
+      length: 500,
+    })
+      .notNull()
+      .unique(),
+    blockTime: timestamp("block_time"),
+    slot: bigint("slot", { mode: "number" }),
+
+    // Participants
+    viewerPubkey: varchar("viewer_pubkey", { length: 500 }).notNull(),
+    creatorPubkey: varchar("creator_pubkey", { length: 500 }).notNull(),
+
+    // Session state after settlement
+    chunksConsumedAfter: integer("chunks_consumed_after").notNull(),
+    chunksRemaining: integer("chunks_remaining").notNull(),
+
+    // Timestamps
+    settlementTimestamp: timestamp("settlement_timestamp").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      sessionIdx: index("settlements_session_idx").on(table.sessionId),
+      videoIdx: index("settlements_video_idx").on(table.videoId),
+      viewerIdx: index("settlements_viewer_idx").on(table.viewerPubkey),
+      creatorIdx: index("settlements_creator_idx").on(table.creatorPubkey),
+      signatureIdx: index("settlements_signature_idx").on(
+        table.transactionSignature
+      ),
+      createdAtIdx: index("settlements_created_at_idx").on(table.createdAt),
+    };
+  }
+);
+
+// =============================================================================
 // Transactions Table (Payment Tracking)
 // =============================================================================
 
@@ -387,3 +443,7 @@ export type NewBlockchainSession = typeof blockchainSessions.$inferInsert;
 // Chunk Payments
 export type ChunkPayment = typeof chunkPayments.$inferSelect;
 export type NewChunkPayment = typeof chunkPayments.$inferInsert;
+
+// Settlements
+export type Settlement = typeof settlements.$inferSelect;
+export type NewSettlement = typeof settlements.$inferInsert;

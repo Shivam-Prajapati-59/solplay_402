@@ -31,6 +31,7 @@ import z from "zod";
 import lighthouse from "@lighthouse-web3/sdk";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { createNewVideo } from "@/data/videos";
+import { createOrGetUser } from "@/data/user.api";
 
 // Form validation schema
 const formSchema = z.object({
