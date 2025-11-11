@@ -21,6 +21,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { EventEmitter } from "events";
 import IDL from "../../../target/idl/solplay_402.json";
+import { chunkPaymentTracker } from "./chunk-payment-tracker.service";
 
 // Event types
 interface VideoCreatedEvent {
@@ -557,8 +558,18 @@ export class BlockchainListenerService extends EventEmitter {
         })
         .where(eq(blockchainSessions.id, session.id));
 
+      // IMPORTANT: Clear settled chunks from in-memory tracker
+      // This ensures the chunks won't show as "unsettled" when viewer returns
+      chunkPaymentTracker.clearSettledChunks(
+        session.videoId.toString(),
+        viewer.toBase58()
+      );
+
       console.log(
         `✅ Settlement recorded: ${chunkCount} chunks, signature: ${signature}`
+      );
+      console.log(
+        `🧹 Cleared ${chunkCount} settled chunks from in-memory tracker`
       );
       this.emit("settlementRecorded", {
         sessionPda: sessionPda.toBase58(),

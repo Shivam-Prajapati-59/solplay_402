@@ -20,7 +20,8 @@
  */
 
 import axios, { AxiosInstance, AxiosResponse } from "axios";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import bs58 from "bs58";
 
 // x402 Payment proof structure
 interface X402PaymentProof {
@@ -29,7 +30,7 @@ interface X402PaymentProof {
   viewerPubkey: string;
   sessionPda: string;
   timestamp: number;
-  signature?: string; // Optional: signature proving approval
+  signature?: string; // Signature of payment intent message
 }
 
 // x402 Response from server
@@ -39,6 +40,14 @@ interface X402Response {
   chunkData?: any;
   paymentRequired?: boolean;
   approvalNeeded?: boolean;
+  transaction?: string; // Transaction signature if payment executed
+}
+
+// Wallet signer interface (compatible with Solana wallet adapters)
+interface WalletSigner {
+  publicKey: PublicKey;
+  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
+  signTransaction?: <T extends Transaction>(transaction: T) => Promise<T>;
 }
 
 /**
@@ -62,9 +71,14 @@ interface X402Response {
 export class X402Client {
   private axiosClient: AxiosInstance;
   private viewerPubkey: string | null = null;
+  private wallet: WalletSigner | null = null;
   private sessionPdaCache: Map<string, string> = new Map();
 
-  constructor(baseURL: string, viewerPublicKey?: PublicKey | string) {
+  constructor(
+    baseURL: string,
+    viewerPublicKey?: PublicKey | string,
+    wallet?: WalletSigner
+  ) {
     this.axiosClient = axios.create({
       baseURL,
       headers: {
@@ -75,6 +89,11 @@ export class X402Client {
 
     if (viewerPublicKey) {
       this.viewerPubkey = viewerPublicKey.toString();
+    }
+
+    if (wallet) {
+      this.wallet = wallet;
+      this.viewerPubkey = wallet.publicKey.toString();
     }
 
     // Add request interceptor to inject payment proofs
@@ -90,17 +109,25 @@ export class X402Client {
     );
 
     // Add response interceptor to handle 402 Payment Required
+    // Similar to x402-axios but adapted for chunk-based streaming
     this.axiosClient.interceptors.response.use(
       (response) => response,
       async (error) => {
         if (error.response?.status === 402) {
           const paymentInfo = error.response.data;
+          const originalRequest = error.config;
 
-          // Check if approval is needed
+          // Prevent infinite retry loops
+          if (originalRequest._retry) {
+            throw error;
+          }
+          originalRequest._retry = true;
+
+          // Check if approval is needed first
           if (paymentInfo.approvalNeeded) {
             throw new Error(
               `Payment approval required. Please approve streaming for this video first. ` +
-                `Required: ${paymentInfo.maxChunks} chunks @ ${paymentInfo.pricePerChunk} SOL each`
+                `Required: ${paymentInfo.maxChunks} chunks @ ${paymentInfo.pricePerChunk} tokens each`
             );
           }
 
@@ -111,10 +138,79 @@ export class X402Client {
                 `Please settle your session before continuing.`
             );
           }
+
+          // If we have a wallet with signing capability, create payment proof
+          if (this.wallet?.signMessage && paymentInfo.paymentRequired) {
+            try {
+              console.log("💳 402 Payment Required - Creating proof...");
+
+              // Create payment message (like x402 spec)
+              const paymentMessage = this.createPaymentMessage(paymentInfo);
+
+              // Sign the message
+              const signature = await this.signPaymentMessage(paymentMessage);
+
+              // Add signature to request and retry
+              originalRequest.headers["X-Payment-Proof"] = signature;
+              originalRequest.data = {
+                ...JSON.parse(originalRequest.data || "{}"),
+                paymentSignature: signature,
+              };
+
+              console.log("✅ Payment proof created, retrying request...");
+              return this.axiosClient(originalRequest);
+            } catch (signError) {
+              console.error("❌ Failed to create payment proof:", signError);
+              throw new Error(
+                `Payment signing failed: ${
+                  signError instanceof Error
+                    ? signError.message
+                    : "Unknown error"
+                }`
+              );
+            }
+          }
+
+          // If no wallet or signing not supported, throw original error
+          throw error;
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  /**
+   * Create a payment message for signing (x402 spec compliant)
+   * Format: "x402-payment:<videoId>:<segment>:<timestamp>:<sessionPda>"
+   */
+  private createPaymentMessage(paymentInfo: any): string {
+    const { videoId, segment, sessionPda } = paymentInfo;
+    const timestamp = Date.now();
+    return `x402-payment:${videoId}:${segment}:${timestamp}:${
+      sessionPda || "pending"
+    }`;
+  }
+
+  /**
+   * Sign a payment message using the wallet
+   * Returns base58-encoded signature
+   */
+  private async signPaymentMessage(message: string): Promise<string> {
+    if (!this.wallet?.signMessage) {
+      throw new Error("Wallet does not support message signing");
+    }
+
+    const messageBytes = new TextEncoder().encode(message);
+    const signatureBytes = await this.wallet.signMessage(messageBytes);
+    return bs58.encode(signatureBytes);
+  }
+
+  /**
+   * Set the wallet signer for automatic payment signing
+   */
+  setWallet(wallet: WalletSigner): void {
+    this.wallet = wallet;
+    this.viewerPubkey = wallet.publicKey.toString();
   }
 
   /**
@@ -137,20 +233,42 @@ export class X402Client {
     }
 
     const segment = `chunk-${segmentIndex}`;
+    const sessionPda = this.sessionPdaCache.get(videoId) || "pending";
+    const timestamp = Date.now();
 
-    // Create payment proof
-    const paymentProof: X402PaymentProof = {
-      videoId,
-      segment,
+    // Create payment proof object
+    const paymentProof: any = {
       viewerPubkey: this.viewerPubkey,
-      sessionPda: this.sessionPdaCache.get(videoId) || "pending",
-      timestamp: Date.now(),
+      sessionPda,
+      timestamp,
     };
 
-    // Track chunk view via x402 API
+    // If wallet is available and supports signing, sign the payment proof
+    if (this.wallet?.signMessage) {
+      try {
+        const message = `x402-payment:${videoId}:${segment}:${timestamp}:${sessionPda}`;
+        const messageBytes = new TextEncoder().encode(message);
+        const signatureBytes = await this.wallet.signMessage(messageBytes);
+        paymentProof.signature = bs58.encode(signatureBytes);
+
+        console.log(`🔐 Signed payment proof for ${segment}`);
+      } catch (error) {
+        console.warn(
+          "⚠️ Failed to sign payment proof (continuing without signature):",
+          error
+        );
+      }
+    }
+
+    // Track chunk view via x402 API with correct structure
     const response = await this.axiosClient.post<X402Response>(
       "/api/x402/track-chunk",
-      paymentProof
+      {
+        videoId,
+        segment,
+        paymentProof: JSON.stringify(paymentProof), // Backend expects paymentProof as a field
+        viewerPubkey: this.viewerPubkey,
+      }
     );
 
     return response.data;
@@ -260,14 +378,20 @@ let x402ClientInstance: X402Client | null = null;
 
 export function getX402Client(
   baseURL?: string,
-  viewerPublicKey?: PublicKey | string
+  viewerPublicKey?: PublicKey | string,
+  wallet?: WalletSigner
 ): X402Client {
   if (!x402ClientInstance) {
     const apiUrl =
       baseURL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-    x402ClientInstance = new X402Client(apiUrl, viewerPublicKey);
-  } else if (viewerPublicKey) {
-    x402ClientInstance.setViewer(viewerPublicKey);
+    x402ClientInstance = new X402Client(apiUrl, viewerPublicKey, wallet);
+  } else {
+    if (viewerPublicKey) {
+      x402ClientInstance.setViewer(viewerPublicKey);
+    }
+    if (wallet) {
+      x402ClientInstance.setWallet(wallet);
+    }
   }
 
   return x402ClientInstance;

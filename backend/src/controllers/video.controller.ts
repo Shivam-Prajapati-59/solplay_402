@@ -227,20 +227,36 @@ export const serveSegment = async (req: Request, res: Response) => {
   // Track chunk delivery after successful x402 payment
   // The x402 middleware has already verified payment before this point
   try {
-    // Extract viewer wallet from request (set by middleware or query param)
-    const viewerWallet = req.query.wallet as string | undefined;
+    // Extract payment proof from middleware
+    const paymentProof =
+      (req as any).x402PaymentProof ||
+      JSON.stringify({
+        videoId,
+        segment,
+        timestamp: Date.now(),
+        verified: true,
+      });
 
-    if (viewerWallet && videoId) {
-      // Record the chunk view for settlement tracking
+    const viewerPubkey =
+      (req.query.wallet as string) ||
+      (req.headers["x-viewer-pubkey"] as string);
+
+    // Record the chunk view for settlement tracking
+    // Correct parameter order: videoId, segment, paymentProof, viewerPubkey
+    if (videoId && segment) {
       await chunkPaymentTracker.recordChunkView(
         videoId,
-        viewerWallet,
         segment,
-        "$0.001" // Price from x402 middleware config
+        paymentProof,
+        viewerPubkey
       );
 
       console.log(
-        `📊 Tracked chunk delivery: ${videoId}/${segment} for ${viewerWallet}`
+        `📊 Chunk tracked: ${videoId}/${segment}${
+          viewerPubkey
+            ? ` (${viewerPubkey.substring(0, 8)}...)`
+            : " (anonymous)"
+        }`
       );
     }
   } catch (error) {

@@ -33,6 +33,7 @@
     "drizzle-orm": "^0.44.7",
     "express": "^5.1.0",
     "fluent-ffmpeg": "^2.1.3",
+    "tweetnacl": "^1.0.3",
     "viem": "^2.38.6",
     "x402-axios": "^0.7.0",
     "x402-express": "^0.7.1",

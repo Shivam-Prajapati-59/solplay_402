@@ -204,6 +204,67 @@ export class BlockchainService {
     console.log("  Token Mint:", TOKEN_MINT.toString());
 
     try {
+      // Check for existing session and close it if inactive/expired
+      console.log("🔍 Checking for existing session...");
+      try {
+        const existingSession = await this.getViewerSession(params.videoId);
+        if (existingSession) {
+          const now = Math.floor(Date.now() / 1000);
+          const sessionStartTimestamp = Math.floor(
+            existingSession.sessionStart.getTime() / 1000
+          );
+          const lastActivityTimestamp = Math.floor(
+            existingSession.lastActivity.getTime() / 1000
+          );
+
+          const sessionAge = now - sessionStartTimestamp;
+          const inactivityDuration = now - lastActivityTimestamp;
+
+          // Session inactive (>1h) or expired (>24h)
+          const isInactive = inactivityDuration > 3600; // 1 hour
+          const isExpired = sessionAge > 86400; // 24 hours
+
+          if (isInactive || isExpired) {
+            console.log(
+              `⚠️ Found ${
+                isExpired ? "expired" : "inactive"
+              } session - closing it first...`
+            );
+            console.log(
+              `  Session age: ${Math.floor(sessionAge / 3600)}h ${Math.floor(
+                (sessionAge % 3600) / 60
+              )}m`
+            );
+            console.log(
+              `  Inactive for: ${Math.floor(inactivityDuration / 60)} minutes`
+            );
+
+            try {
+              await this.closeSession(params.videoId);
+              console.log("  ✅ Old session closed successfully");
+              // Wait a bit for the transaction to settle
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            } catch (closeError: any) {
+              console.warn(
+                "  ⚠️ Failed to close old session:",
+                closeError.message
+              );
+              console.warn("  Continuing with approval anyway...");
+            }
+          } else {
+            console.log(
+              "  ✅ Existing session is still active - will add to it"
+            );
+          }
+        } else {
+          console.log("  No existing session found - creating new one");
+        }
+      } catch (sessionError) {
+        console.log(
+          "  No existing session (this is normal for first approval)"
+        );
+      }
+
       // Check wallet SOL balance first
       console.log("💰 Checking wallet SOL balance...");
       const balance = await this.connection.getBalance(this.wallet.publicKey);
@@ -344,21 +405,119 @@ export class BlockchainService {
   async settleSessionBatch(params: {
     videoId: string;
     chunkCount: number;
-    platformAuthority: PublicKey;
+    platformAuthority?: PublicKey; // Optional - will fetch from blockchain if not provided
   }) {
     if (!this.program || !this.wallet?.publicKey) {
       throw new Error("Wallet not connected");
     }
 
-    const settlementTimestamp = new BN(Math.floor(Date.now() / 1000));
+    // Fetch video to get creator's public key
+    const video = await this.getVideo(params.videoId);
+    if (!video) {
+      throw new Error("Video not found");
+    }
 
+    // Get platform PDA
+    const [platformPda] = derivePlatformPda();
+
+    // Fetch platform data to get token mint AND authority
+    const platformData = await (this.program.account as any).platform.fetch(
+      platformPda
+    );
+    const tokenMint = platformData.tokenMint;
+    const platformAuthority = platformData.authority; // Get REAL platform authority from blockchain
+
+    console.log("🔍 Settlement Debug:");
+    console.log("  Video Creator:", video.creator.toString());
+    console.log(
+      "  Platform Authority (from blockchain):",
+      platformAuthority.toString()
+    );
+    console.log("  Token Mint:", tokenMint.toString());
+
+    // Check and create token accounts if needed
+    const instructions: any[] = [];
+
+    // 1. Viewer token account (should already exist since they approved delegate)
+    const viewerTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
+      this.connection,
+      tokenMint,
+      this.wallet.publicKey,
+      this.wallet.publicKey
+    );
+    console.log(
+      "  Viewer Token Account:",
+      viewerTokenAccountInfo.address.toString()
+    );
+
+    // 2. Creator token account (create if needed)
+    const creatorTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
+      this.connection,
+      tokenMint,
+      video.creator,
+      this.wallet.publicKey // Viewer pays for creation
+    );
+    console.log(
+      "  Creator Token Account:",
+      creatorTokenAccountInfo.address.toString()
+    );
+    if (creatorTokenAccountInfo.needsCreation) {
+      console.log("  ⚠️ Creator token account needs creation");
+      instructions.push(creatorTokenAccountInfo.instruction);
+    }
+
+    // 3. Platform token account (create if needed)
+    const platformTokenAccountInfo = await getOrCreateAssociatedTokenAccount(
+      this.connection,
+      tokenMint,
+      platformAuthority, // Use authority from blockchain
+      this.wallet.publicKey // Viewer pays for creation
+    );
+    console.log(
+      "  Platform Token Account:",
+      platformTokenAccountInfo.address.toString()
+    );
+    if (platformTokenAccountInfo.needsCreation) {
+      console.log("  ⚠️ Platform token account needs creation");
+      instructions.push(platformTokenAccountInfo.instruction);
+    }
+
+    // If any token accounts need creation, send a transaction first
+    if (instructions.length > 0) {
+      console.log(`📝 Creating ${instructions.length} token account(s)...`);
+      const tx = new Transaction().add(...instructions);
+      const sig = await this.program.provider!.sendAndConfirm!(tx);
+      console.log("✅ Token accounts created:", sig);
+    }
+
+    // Fetch blockchain clock to avoid "timestamp in future" errors
+    // Use blockchain's clock instead of Date.now() to handle clock skew
+    const slot = await this.connection.getSlot();
+    const blockTime = await this.connection.getBlockTime(slot);
+
+    // Use blockchain time, or fall back to current time minus 5 seconds as safety buffer
+    const currentTimestamp = blockTime || Math.floor(Date.now() / 1000) - 5;
+    const settlementTimestamp = new BN(currentTimestamp);
+
+    console.log(
+      "🕐 Settlement Timestamp:",
+      settlementTimestamp.toString(),
+      `(${new Date(currentTimestamp * 1000).toISOString()})`
+    );
+
+    console.log("💰 Settling session...");
     const signature = await settleSession(this.program, {
       videoId: params.videoId,
       chunkCount: params.chunkCount,
       settlementTimestamp,
       viewer: this.wallet.publicKey,
-      platformAuthority: params.platformAuthority,
+      platformAuthority, // Use authority from blockchain
+      viewerTokenAccount: viewerTokenAccountInfo.address,
+      creatorTokenAccount: creatorTokenAccountInfo.address,
+      platformTokenAccount: platformTokenAccountInfo.address,
     });
+
+    console.log("✅ Settlement successful:", signature);
 
     return {
       signature,

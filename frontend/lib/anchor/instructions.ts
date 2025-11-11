@@ -198,6 +198,9 @@ export async function settleSession(
     settlementTimestamp: BN;
     viewer: PublicKey;
     platformAuthority: PublicKey; // Platform PDA authority
+    viewerTokenAccount: PublicKey;
+    creatorTokenAccount: PublicKey;
+    platformTokenAccount: PublicKey;
   }
 ) {
   const [videoPda] = deriveVideoPda(params.videoId);
@@ -213,6 +216,9 @@ export async function settleSession(
       viewerSession: viewerSessionPda,
       creatorEarnings: creatorEarningsPda,
       platform: platformPda,
+      viewerTokenAccount: params.viewerTokenAccount,
+      creatorTokenAccount: params.creatorTokenAccount,
+      platformTokenAccount: params.platformTokenAccount,
       platformAuthority: params.platformAuthority,
       tokenProgram: TOKEN_PROGRAM_ID,
     })

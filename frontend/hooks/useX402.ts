@@ -27,6 +27,7 @@
 import { useEffect, useMemo, useCallback } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { getX402Client, resetX402Client, X402Client } from "@/lib/x402-client";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 interface UseX402Return {
   client: X402Client;
@@ -51,35 +52,56 @@ interface UseX402Return {
 }
 
 /**
- * Hook to use x402 client with automatic viewer setup
+ * Hook to use x402 client with automatic viewer setup and wallet signing
  *
- * @param viewerPublicKey - User's wallet public key
+ * @param viewerPublicKey - User's wallet public key (optional if using wallet hook)
  * @returns x402 client instance and helper methods
  */
 export function useX402(
   viewerPublicKey?: PublicKey | string | null
 ): UseX402Return {
+  // Get wallet from context for signing capabilities
+  const wallet = useWallet();
+
+  // Use wallet publicKey if viewerPublicKey not provided
+  const effectivePublicKey = viewerPublicKey || wallet.publicKey;
+
+  // Create wallet signer object if wallet supports signing
+  const walletSigner = useMemo(() => {
+    if (wallet.publicKey && wallet.signMessage) {
+      return {
+        publicKey: wallet.publicKey,
+        signMessage: wallet.signMessage,
+        signTransaction: wallet.signTransaction,
+      };
+    }
+    return undefined;
+  }, [wallet.publicKey, wallet.signMessage, wallet.signTransaction]);
+
   // Create/get x402 client instance
   const client = useMemo(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-    return getX402Client(apiUrl, viewerPublicKey || undefined);
-  }, []);
+    return getX402Client(apiUrl, effectivePublicKey || undefined, walletSigner);
+  }, [effectivePublicKey, walletSigner]);
 
   // Update viewer when wallet changes
   useEffect(() => {
-    if (viewerPublicKey) {
-      client.setViewer(viewerPublicKey);
+    if (effectivePublicKey) {
+      client.setViewer(effectivePublicKey);
     }
-  }, [viewerPublicKey, client]);
+    if (walletSigner) {
+      client.setWallet(walletSigner);
+    }
+  }, [effectivePublicKey, walletSigner, client]);
 
   // Clean up on unmount (if wallet disconnects)
   useEffect(() => {
     return () => {
-      if (!viewerPublicKey) {
+      if (!effectivePublicKey) {
         resetX402Client();
       }
     };
-  }, [viewerPublicKey]);
+  }, [effectivePublicKey]);
 
   // Memoized helper methods
   const fetchChunk = useCallback(
@@ -119,7 +141,7 @@ export function useX402(
 
   return {
     client,
-    isReady: !!viewerPublicKey,
+    isReady: !!effectivePublicKey,
     fetchChunk,
     fetchChunkByUrl,
     getUnsettledCount,

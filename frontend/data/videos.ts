@@ -38,16 +38,18 @@ export const createVideoInDatabase = async (data: VideoUploadData) => {
       creatorPubkey: data.pubkey,
       ipfsCid: data.CID,
       thumbnailUrl: data.thumbnail,
-      price: parseFloat(data.price.replace("$", "")),
-      status: "processing", // Backend will transcode
+      price: data.price.replace("$", ""), // Keep as string, just remove $ sign
+      status: "ready", // Make video immediately available
     });
 
+    // Backend returns { success: true, video: {...}, message: "..." }
     return {
       success: true,
-      video: response.data,
+      video: response.data.video, // Extract video from response
     };
   } catch (error: any) {
     console.error("Database video creation error:", error);
+    console.error("Error details:", error.response?.data);
     return {
       success: false,
       error:

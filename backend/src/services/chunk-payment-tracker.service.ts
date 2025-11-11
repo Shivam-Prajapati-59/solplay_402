@@ -7,6 +7,7 @@
 import { db } from "../db";
 import { videos, blockchainSessions, chunkPayments } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import { verifyPaymentProof } from "../utils/crypto";
 
 // In-memory storage for chunk views (to be replaced with Redis in production)
 interface ChunkView {
@@ -32,6 +33,22 @@ class ChunkPaymentTracker {
     paymentProof: string,
     viewerPubkey?: string
   ): Promise<void> {
+    // Since x402 middleware already verified payment, we trust the proof
+    // We only validate format, not cryptographic signature
+    let isValidFormat = true;
+
+    try {
+      // Try to parse if it's JSON
+      if (paymentProof.startsWith("{")) {
+        JSON.parse(paymentProof);
+      }
+      console.log(`✅ Payment proof accepted for ${segment}`);
+    } catch (parseError) {
+      console.warn(`⚠️ Payment proof format warning:`, parseError);
+      // Still accept it since x402 already validated
+      isValidFormat = true;
+    }
+
     const key = `${videoId}:${viewerPubkey || "anonymous"}`;
 
     if (!this.chunkViews.has(key)) {

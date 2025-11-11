@@ -143,9 +143,63 @@ export const getUnsettledChunkCount = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Get settlement preview - calculates costs before settlement
+ * GET /api/x402/preview/:sessionPda
+ */
+export const getSettlementPreview = async (req: Request, res: Response) => {
+  try {
+    const { sessionPda } = req.params;
+    const { videoId, viewerPubkey } = req.query;
+
+    if (!videoId) {
+      return res.status(400).json({
+        error: "Missing required parameter: videoId",
+      });
+    }
+
+    // Get unsettled chunk count
+    const unsettledChunks = chunkPaymentTracker.getUnsettledChunkCount(
+      videoId as string,
+      viewerPubkey as string | undefined
+    );
+
+    // Get settlement stats
+    const stats = await chunkPaymentTracker.getSettlementStats(
+      videoId as string,
+      viewerPubkey as string | undefined
+    );
+
+    // Calculate settlement amounts
+    const totalPayment = stats.estimatedSettlementValue;
+    const platformFee = Math.floor(totalPayment * 0.025); // 2.5% platform fee
+    const creatorAmount = totalPayment - platformFee;
+    const chunksRemaining = 0; // Will be calculated based on session
+
+    res.json({
+      success: true,
+      preview: {
+        unsettledChunks,
+        totalPayment,
+        platformFee,
+        creatorAmount,
+        chunksRemaining,
+        pricePerChunk: totalPayment / (unsettledChunks || 1),
+      },
+    });
+  } catch (error: any) {
+    console.error("Get settlement preview error:", error);
+    res.status(500).json({
+      error: "Failed to get settlement preview",
+      details: error.message,
+    });
+  }
+};
+
 export default {
   trackChunkView,
   getSettlementStats,
   triggerSettlement,
   getUnsettledChunkCount,
+  getSettlementPreview,
 };

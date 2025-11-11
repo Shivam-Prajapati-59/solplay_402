@@ -10,6 +10,7 @@ import {
   getSettlementStats,
   triggerSettlement,
   getUnsettledChunkCount,
+  getSettlementPreview,
 } from "../controllers/x402-payment.controller";
 
 const router = Router();
@@ -25,6 +26,12 @@ router.post("/track-chunk", trackChunkView);
  * Get settlement stats for a viewer-video pair
  */
 router.get("/stats/:videoId", getSettlementStats);
+
+/**
+ * GET /api/x402/preview/:sessionPda
+ * Get settlement preview (calculates costs before settlement)
+ */
+router.get("/preview/:sessionPda", getSettlementPreview);
 
 /**
  * POST /api/x402/settle
