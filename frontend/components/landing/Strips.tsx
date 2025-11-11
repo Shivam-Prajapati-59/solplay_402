@@ -69,10 +69,10 @@ const Strips = () => {
     }, []);
 
     const items = [
-        "Trending NFT all the time!",
-        "Explore rare collectibles!",
-        "Mint your next gem!",
-        "Discover top creators!",
+        "Stream Premium Content!",
+        "Pay-per-chunk streaming!",
+        "99% Gas Savings!",
+        "Support Your Creators!",
     ];
 
     const ContentBlock = ({ idPrefix }: { idPrefix: string }) => (

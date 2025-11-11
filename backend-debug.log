@@ -1,0 +1,5 @@
+npm error Missing script: "dev"
+npm error
+npm error To see a list of scripts, run:
+npm error   npm run
+npm error A complete log of this run can be found in: /home/bittubadmos/.npm/_logs/2025-11-11T08_56_09_033Z-debug-0.log

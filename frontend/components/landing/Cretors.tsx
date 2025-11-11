@@ -9,22 +9,22 @@ type Creator = {
     name: string;
     username: string;
     followers: string;
-    nftsCreated: number;
-    itemsCreated: number;
+    videosCreated: number;
+    totalViews: number;
     avatar: string;
-    nfts: string[];
+    thumbnails: string[];
 };
 
 const CREATORS: Creator[] = [
     {
         id: 1,
-        name: "FARWORLD",
-        username: "Farworld",
+        name: "TechExplorer",
+        username: "techexplorer",
         followers: "67,398",
-        nftsCreated: 214,
-        itemsCreated: 892,
+        videosCreated: 214,
+        totalViews: 892000,
         avatar: "/zomb.png",
-        nfts: [
+        thumbnails: [
             "/movies/movie1.jpeg",
             "/movies/movie2.jpeg",
             "/movies/movie3.jpeg",
@@ -32,13 +32,13 @@ const CREATORS: Creator[] = [
     },
     {
         id: 2,
-        name: "Karafuru",
-        username: "KarafuruDeployer",
+        name: "CryptoTeacher",
+        username: "cryptoteacher",
         followers: "120,456",
-        nftsCreated: 120,
-        itemsCreated: 456,
+        videosCreated: 120,
+        totalViews: 1200000,
         avatar: "/zomb.png",
-        nfts: [
+        thumbnails: [
             "/movies/movie1.jpeg",
             "/movies/movie2.jpeg",
             "/movies/movie3.jpeg",
@@ -46,13 +46,13 @@ const CREATORS: Creator[] = [
     },
     {
         id: 3,
-        name: "CyberPunk",
-        username: "CyberArtist",
+        name: "CodeMaster",
+        username: "codemaster",
         followers: "98,234",
-        nftsCreated: 187,
-        itemsCreated: 723,
+        videosCreated: 187,
+        totalViews: 750000,
         avatar: "/zomb.png",
-        nfts: [
+        thumbnails: [
             "/movies/movie1.jpeg",
             "/movies/movie2.jpeg",
             "/movies/movie3.jpeg",
@@ -60,13 +60,13 @@ const CREATORS: Creator[] = [
     },
     {
         id: 4,
-        name: "PixelMaster",
-        username: "PixelMasterNFT",
+        name: "Web3Wizard",
+        username: "web3wizard",
         followers: "85,123",
-        nftsCreated: 156,
-        itemsCreated: 612,
+        videosCreated: 156,
+        totalViews: 680000,
         avatar: "/zomb.png",
-        nfts: [
+        thumbnails: [
             "https://images.unsplash.com/photo-1618172193622-ae2d025f4032?w=400&h=400&fit=crop",
             "https://images.unsplash.com/photo-1618172193763-c511deb635ca?w=400&h=400&fit=crop",
             "https://images.unsplash.com/photo-1643916861364-02e63ce3e52f?w=400&h=400&fit=crop",
@@ -140,7 +140,7 @@ const Creators = () => {
                         Top creators of this week
                     </h2>
                     <p className="text-base sm:text-lg text-muted-foreground max-w-2xl">
-                        Subscribe now to get the latest job openings delivered straight to your inbox.
+                        Discover the most popular video creators and start streaming premium content with micropayments on Solana.
                     </p>
                 </div>
 
@@ -192,27 +192,35 @@ const Creators = () => {
                                             <p className="text-lg font-bold text-foreground">{creator.followers}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-muted-foreground mb-1">NFTs Created</p>
-                                            <p className="text-lg font-bold text-foreground">{creator.nftsCreated}</p>
+                                            <p className="text-xs text-muted-foreground mb-1">Videos</p>
+                                            <p className="text-lg font-bold text-foreground">{creator.videosCreated}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-muted-foreground mb-1">Items Created</p>
-                                            <p className="text-lg font-bold text-foreground">{creator.itemsCreated}</p>
+                                            <p className="text-xs text-muted-foreground mb-1">Total Views</p>
+                                            <p className="text-lg font-bold text-foreground">{(creator.totalViews / 1000).toFixed(1)}K</p>
                                         </div>
                                     </div>
 
-                                    {/* NFT Gallery */}
+                                    {/* Video Thumbnails Gallery */}
                                     <div className="grid grid-cols-3 gap-3">
-                                        {creator.nfts.map((nft, nftIndex) => (
+                                        {creator.thumbnails.map((thumbnail: string, thumbIndex: number) => (
                                             <div
-                                                key={nftIndex}
-                                                className="aspect-square rounded-xl overflow-hidden bg-muted/30 hover:scale-105 transition-transform duration-300 cursor-pointer"
+                                                key={thumbIndex}
+                                                className="aspect-video rounded-xl overflow-hidden bg-muted/30 hover:scale-105 transition-transform duration-300 cursor-pointer relative"
                                             >
                                                 <img
-                                                    src={nft}
-                                                    alt={`NFT ${nftIndex + 1}`}
+                                                    src={thumbnail}
+                                                    alt={`Video ${thumbIndex + 1}`}
                                                     className="w-full h-full object-cover"
                                                 />
+                                                {/* Play icon overlay */}
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                                    <div className="w-8 h-8 rounded-full bg-white/80 flex items-center justify-center">
+                                                        <svg className="w-4 h-4 text-primary ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M8 5v14l11-7z" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

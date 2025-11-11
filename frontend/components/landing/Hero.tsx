@@ -66,9 +66,9 @@ const Hero = () => {
     }, []);
 
     const stats = [
-        { icon: Sparkles, value: '+12.8k', label: 'Items deployed' },
-        { icon: Image, value: '9.5k', label: 'Art works' },
-        { icon: Users, value: '10.5k', label: 'Communities' },
+        { icon: Sparkles, value: '99%', label: 'Gas Savings' },
+        { icon: Image, value: '1000+', label: 'Videos Streamed' },
+        { icon: Users, value: '500+', label: 'Active Users' },
     ];
 
     return (
@@ -78,14 +78,15 @@ const Hero = () => {
                     {/* Left Content */}
                     <div ref={heroRef} className="space-y-6 lg:space-y-8">
                         <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-5xl font-bold leading-tight text-foreground">
-                            Create and Collect <br />
+                            Stream and Create <br />
                             <span className="bg-linear-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                                your Favorite Avatar
+                                Premium Video Content
                             </span>
                         </h1>
                         <p className="text-muted-foreground text-base sm:text-lg max-w-xl leading-relaxed">
-                            NFT Marketplace brings artists and creators together on a single
-                            platform to showcase and trade digital collectibles.
+                            SolPlay brings creators and viewers together with blockchain-powered
+                            micropayments. Watch premium content with delegate-based settlement
+                            and save 99% on gas fees.
                         </p>
 
                         <Button
@@ -93,7 +94,7 @@ const Hero = () => {
                             size="lg"
                             className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                         >
-                            Start Collecting
+                            Start Watching
                         </Button>
 
                         {/* Stats */}
@@ -116,43 +117,52 @@ const Hero = () => {
                         </div>
                     </div>
 
-                    {/* Right Content - NFT Card */}
+                    {/* Right Content - Video Preview Card */}
                     <div className="relative flex justify-center lg:justify-end items-center">
                         <div
                             ref={cardRef}
-                            className="relative bg-linear-to-br from-primary via-purple-600 to-pink-600 rounded-3xl p-1 shadow-2xl hover:shadow-primary/50 dark:hover:shadow-primary/30 transition-all duration-500 hover:scale-105 max-w-sm w-full"
+                            className="relative bg-linear-to-br from-primary via-purple-600 to-pink-600 rounded-3xl p-1 shadow-2xl hover:shadow-primary/50 dark:hover:shadow-primary/30 transition-all duration-500 hover:scale-105 max-w-lg w-full"
                         >
                             {/* Card Inner */}
                             <div className="bg-card rounded-3xl overflow-hidden shadow-xl relative">
-                                {/* NFT Image */}
-                                <div className="bg-muted/30 dark:bg-muted/20 relative aspect-3/4">
+                                {/* Video Thumbnail */}
+                                <div className="bg-muted/30 dark:bg-muted/20 relative h-[400px] sm:h-[450px] lg:h-[400px]">
                                     <img
-                                        src="https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=600&h=600&fit=crop"
-                                        alt="NFT Avatar"
-                                        className="w-full h-full object-cover rounded-3xl"
+                                        src="https://i.pinimg.com/236x/a5/78/03/a57803e6f37f73382bf89b007a4b5954.jpg"
+                                        alt="Video Preview"
+                                        className="w-full h-full object-cover rounded-t-3xl"
                                     />
 
-                                    {/* Floating Header with Glass Effect */}
-                                    <div className="absolute top-4 left-4 right-4 bg-background/80 dark:bg-background/60 backdrop-blur-xl border border-border/50 dark:border-border/30 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl">
-                                        <div className="w-10 h-10 bg-linear-to-br from-teal-400 to-teal-600 rounded-full flex items-center justify-center shadow-lg">
-                                            <span className="text-sm font-bold text-white">AN</span>
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-semibold text-foreground leading-tight">A.N.I.M.O</div>
-                                            <div className="text-xs text-muted-foreground">A.N.I.M.O Deployer</div>
+                                    {/* Play Button Overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                        <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer">
+                                            <svg className="w-8 h-8 text-primary ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M8 5v14l11-7z" />
+                                            </svg>
                                         </div>
                                     </div>
 
-                                    {/* Floating Footer with Glass Effect */}
+                                    {/* Floating Creator Info with Glass Effect */}
+                                    <div className="absolute top-4 left-4 right-4 bg-background/80 dark:bg-background/60 backdrop-blur-xl border border-border/50 dark:border-border/30 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl">
+                                        <div className="w-10 h-10 bg-linear-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                                            <span className="text-sm font-bold text-white">SP</span>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-semibold text-foreground leading-tight">SolPlay Creator</div>
+                                            <div className="text-xs text-muted-foreground">Premium Content</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Floating Stats with Glass Effect */}
                                     <div className="absolute bottom-4 left-4 right-4 bg-background/30 dark:bg-background/80 backdrop-blur-xl border border-border/50 dark:border-border/30 rounded-2xl px-4 sm:px-5 py-4 shadow-2xl">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <div className="text-lg sm:text-xl font-bold text-foreground">0.64 ETH</div>
-                                                <div className="text-xs sm:text-sm text-muted-foreground">Floor</div>
+                                                <div className="text-lg sm:text-xl font-bold text-foreground">0.001 SOL</div>
+                                                <div className="text-xs sm:text-sm text-muted-foreground">Per Chunk</div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-lg sm:text-xl font-bold text-foreground">64.8 ETH</div>
-                                                <div className="text-xs sm:text-sm text-muted-foreground">Total Volume</div>
+                                                <div className="text-lg sm:text-xl font-bold text-foreground">12.5K Views</div>
+                                                <div className="text-xs sm:text-sm text-muted-foreground">Total Streams</div>
                                             </div>
                                         </div>
                                     </div>

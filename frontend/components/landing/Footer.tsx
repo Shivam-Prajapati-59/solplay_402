@@ -12,81 +12,84 @@ const Footer = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-4">
                             <div className="w-8 h-8 bg-purple-600 dark:bg-purple-500 rounded-lg flex items-center justify-center transition-colors">
-                                <span className="text-gray-800 font-bold">G</span>
+                                <span className="text-white font-bold">SP402</span>
                             </div>
-                            <span className="text-gray-800 dark:text-gray-100 font-semibold text-lg">Galaxea</span>
+                            <span className="text-gray-800 dark:text-gray-100 font-semibold text-lg">SolPlay</span>
                         </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                            Blockchain-powered video streaming with micropayments on Solana.
+                        </p>
                     </div>
 
-                    {/* Marketplace Column */}
+                    {/* Platform Column */}
                     <div>
-                        <h3 className="text-gray-800 dark:text-gray-100 font-semibold mb-3">Marketplace</h3>
+                        <h3 className="text-gray-800 dark:text-gray-100 font-semibold mb-3">Platform</h3>
                         <ul className="space-y-2 text-sm">
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Art
+                                <a href="/viewer" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Browse Videos
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Gaming
+                                <a href="/viewer/dashboard" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Viewer Dashboard
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Memberships
+                                <a href="/creator" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Creator Studio
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    PFPs
+                                <a href="/creator/upload" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Upload Content
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Photography
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    How It Works
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Music
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Pricing
                                 </a>
                             </li>
                         </ul>
                     </div>
 
-                    {/* My Account Column */}
+                    {/* For Creators Column */}
                     <div>
-                        <h3 className="text-white dark:text-gray-100 font-semibold mb-3">My Account</h3>
+                        <h3 className="text-gray-800 dark:text-gray-100 font-semibold mb-3">For Creators</h3>
                         <ul className="space-y-2 text-sm">
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Profile
+                                <a href="/creator" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Dashboard
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Favorites
+                                <a href="/creator/upload" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Upload Videos
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Watchlist
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Analytics
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Studio
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Earnings
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Goodies Pro
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Creator Guide
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Settings
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Best Practices
                                 </a>
                             </li>
                         </ul>
@@ -94,31 +97,36 @@ const Footer = () => {
 
                     {/* Resources Column */}
                     <div>
-                        <h3 className="text-white dark:text-gray-100 font-semibold mb-3">Resources</h3>
+                        <h3 className="text-gray-800 dark:text-gray-100 font-semibold mb-3">Resources</h3>
                         <ul className="space-y-2 text-sm">
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Documentation
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    API Reference
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
                                     Blog
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Learn
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    News
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
                                     Help Center
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="hover:text-white dark:hover:text-gray-200 transition-colors">
-                                    Docs
+                                <a href="#" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    Community
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://solana.com" target="_blank" rel="noopener noreferrer" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                    About Solana
                                 </a>
                             </li>
                         </ul>

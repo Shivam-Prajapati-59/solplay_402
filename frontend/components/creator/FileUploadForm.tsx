@@ -54,7 +54,7 @@ const formSchema = z.object({
         .refine((val) => {
             const priceRegex = /^\$?\d+(\.\d{1,2})?$/;
             return priceRegex.test(val);
-        }, "Price must be a valid amount (e.g., 0.01 or $0.01)"),
+        }, "Price must be a valid amount (e.g., 0.001 or $0.001)"),
     tags: z.string().refine((val) => {
         if (!val || val.trim().length === 0) return true;
         const tags = val.split(/[,\s]+/).filter((tag) => tag.trim().length > 0);
@@ -88,7 +88,7 @@ const VideoForm = () => {
             title: "",
             description: "",
             thumbnail: "",
-            price: "0.01",
+            price: "0.001",
             tags: "",
         },
     });
@@ -409,13 +409,13 @@ const VideoForm = () => {
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
-                                                    placeholder="0.01"
+                                                    placeholder="0.001"
                                                     {...field}
                                                     disabled={isSubmitting}
                                                 />
                                             </FormControl>
                                             <FormDescription className="text-xs">
-                                                Access price (e.g., 0.01)
+                                                Access price (e.g., 0.001)
                                             </FormDescription>
                                             <FormMessage />
                                         </FormItem>

@@ -13,10 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, ExternalLink, CheckCircle2, XCircle } from "lucide-react";
-import { BlockchainService } from "@/lib/anchor/blockchain-service";
 import { x402API } from "@/data/x402.api";
-import { PLATFORM_AUTHORITY } from "@/lib/anchor/constants";
-import { PublicKey } from "@solana/web3.js";
+import { useBlockchain } from "@/hooks/useBlockchain";
 
 interface SettlementDialogProps {
   open: boolean;
@@ -41,6 +39,7 @@ export function SettlementDialog({
   onSettled,
 }: SettlementDialogProps) {
   const { publicKey, connected } = useWallet();
+  const { service: blockchainService } = useBlockchain(); // Use the hook instead!
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [settling, setSettling] = useState(false);
@@ -108,16 +107,19 @@ export function SettlementDialog({
   const handleSettle = async () => {
     if (!publicKey || !preview || preview.unsettledChunks === 0) return;
 
+    if (!blockchainService) {
+      setError("Blockchain service not initialized. Please refresh and try again.");
+      return;
+    }
+
     try {
       setSettling(true);
       setError(null);
 
-      const blockchainService = new BlockchainService();
-
+      // Platform authority will be fetched from blockchain automatically
       const result = await blockchainService.settleSessionBatch({
         videoId,
         chunkCount: preview.unsettledChunks,
-        platformAuthority: new PublicKey(PLATFORM_AUTHORITY),
       });
 
       setSuccess({
@@ -138,8 +140,17 @@ export function SettlementDialog({
   };
 
   const getSolanaExplorerUrl = (signature: string) => {
-    const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
-    return `https://explorer.solana.com/tx/${signature}?cluster=${cluster}`;
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet";
+    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "http://127.0.0.1:8899";
+
+    // Check if running on localhost
+    if (rpcUrl.includes("127.0.0.1") || rpcUrl.includes("localhost")) {
+      // For localhost, use Solana Explorer with custom RPC
+      return `https://explorer.solana.com/tx/${signature}?cluster=custom&customUrl=${encodeURIComponent(rpcUrl)}`;
+    }
+
+    // For devnet/mainnet
+    return `https://explorer.solana.com/tx/${signature}?cluster=${network}`;
   };
 
   const handleClose = () => {

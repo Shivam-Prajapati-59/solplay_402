@@ -7,7 +7,7 @@ import Footer from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div>
+    <div className="pt-15 px-4 sm:px-6 lg:px-8">
       <Hero />
       <UserBar />
       <Creators />

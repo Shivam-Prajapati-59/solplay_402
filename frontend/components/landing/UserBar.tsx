@@ -10,11 +10,11 @@ type User = {
 };
 
 const USERS: User[] = [
-    { id: "1", name: "PandaBear", subtitle: "Created 128 NFTs", avatarUrl: "/zomb.png" },
-    { id: "2", name: "Farworld", subtitle: "Created 128 NFTs", avatarUrl: "/zomb.png" },
-    { id: "3", name: "Basilian", subtitle: "Created 128 NFTs", avatarUrl: "/zomb.png" },
-    { id: "4", name: "Captain & Morgan", subtitle: "Created 128 NFTs", avatarUrl: "/zomb.png" },
-    { id: "5", name: "Karafuru", subtitle: "Created 128 NFTs", avatarUrl: "/zomb.png" }
+    { id: "1", name: "CryptoCreator", subtitle: "5.2K SOL Earned", avatarUrl: "/zomb.png" },
+    { id: "2", name: "VideoMaster", subtitle: "3.8K SOL Earned", avatarUrl: "/zomb.png" },
+    { id: "3", name: "StreamKing", subtitle: "2.9K SOL Earned", avatarUrl: "/zomb.png" },
+    { id: "4", name: "ContentPro", subtitle: "2.1K SOL Earned", avatarUrl: "/zomb.png" },
+    { id: "5", name: "MediaLab", subtitle: "1.8K SOL Earned", avatarUrl: "/zomb.png" }
 ];
 
 export default function UserBar() {
